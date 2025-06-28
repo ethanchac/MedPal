@@ -1,3 +1,4 @@
+// MainScreen.jsx
 import React, { useState, useEffect } from "react";
 import { askGemini } from "../../Gemini/GeminiAPIService";
 import ttsService from "../../threejs/TTSService";
@@ -21,24 +22,17 @@ import Header from "./components/Header";
 import KeyParts from "./components/KeyParts";
 
 function MainScreen() {
-  // Authentication state
   const [user, setUser] = useState(null);
   const [authLoading, setAuthLoading] = useState(true);
-
-  // Chat state
   const [input, setInput] = useState("");
   const [response, setResponse] = useState("");
   const [isThinking, setIsThinking] = useState(false);
   const [showDebug, setShowDebug] = useState(false);
-
-  // Conversation state
   const [currentConversationId, setCurrentConversationId] = useState(null);
   const [conversationMessages, setConversationMessages] = useState([]);
-  const [sidebarOpen, setSidebarOpen] = useState(true); // Start open on desktop
+  const [sidebarOpen, setSidebarOpen] = useState(true);
   const [databaseReady, setDatabaseReady] = useState(false);
 
-
-  // Custom hooks
   const {
     isSpeaking,
     ttsError,
@@ -66,7 +60,6 @@ function MainScreen() {
 
   const { isListening, isSupported, startListening, stopListening } = useSpeechRecognition(handleTranscript);
 
-  // Authentication effect
   useEffect(() => {
     const getSession = async () => {
       try {
@@ -91,19 +84,11 @@ function MainScreen() {
     return () => subscription.unsubscribe();
   }, []);
 
-  // Check if database tables exist and initialize
   useEffect(() => {
-    console.log("USER STUFF", user);
     const checkDatabase = async () => {
       if (!user) return;
-
       try {
-        // Try to fetch conversations to see if table exists
-        const { data, error } = await supabase
-          .from('conversations')
-          .select('id')
-          .limit(1);
-
+        const { data, error } = await supabase.from('conversations').select('id').limit(1);
         if (!error) {
           setDatabaseReady(true);
           initializeConversation();
@@ -116,29 +101,21 @@ function MainScreen() {
         setDatabaseReady(false);
       }
     };
-
     checkDatabase();
   }, [user]);
 
-  // Initialize conversation when ready
   const initializeConversation = async () => {
     if (!databaseReady) return;
-
     try {
-      // Load existing conversations
       const conversations = await ConversationService.getConversations();
-      
       if (conversations.length > 0) {
-        // Use the most recent conversation
         setCurrentConversationId(conversations[0].id);
         await loadConversationMessages(conversations[0].id);
       } else {
-        // Create a new conversation
         await initializeNewConversation();
       }
     } catch (error) {
       console.error('Error initializing conversation:', error);
-      // Fallback: create a new conversation
       await initializeNewConversation();
     }
   };
@@ -156,16 +133,10 @@ function MainScreen() {
 
   const loadConversationMessages = async (conversationId) => {
     if (!conversationId || !databaseReady) return;
-
     try {
       const conversation = await ConversationService.getConversation(conversationId);
       setConversationMessages(conversation.messages);
-      
-      // Set the last assistant message as the current response
-      const lastAssistantMessage = conversation.messages
-        .filter(msg => msg.role === 'assistant')
-        .pop();
-      
+      const lastAssistantMessage = conversation.messages.filter(msg => msg.role === 'assistant').pop();
       setResponse(lastAssistantMessage?.content || "");
     } catch (error) {
       console.error('Error loading conversation:', error);
@@ -174,7 +145,6 @@ function MainScreen() {
 
   const saveMessageToConversation = async (content, role) => {
     if (!currentConversationId || !databaseReady) return;
-
     try {
       await ConversationService.addMessage(currentConversationId, content, role);
     } catch (error) {
@@ -184,7 +154,6 @@ function MainScreen() {
 
   const updateConversationTitle = async (firstMessage) => {
     if (!currentConversationId || !databaseReady) return;
-
     try {
       const title = ConversationService.generateTitleFromMessage(firstMessage);
       await ConversationService.updateConversationTitle(currentConversationId, title);
@@ -202,29 +171,17 @@ function MainScreen() {
     clearAutoSubmitTimers();
     if (input.trim()) {
       const userMessage = input.trim();
-      
       setIsThinking(true);
-      
       try {
-        // Save user message
         await saveMessageToConversation(userMessage, 'user');
-        
-        // Update conversation title if this is the first message
         if (conversationMessages.length === 0) {
           await updateConversationTitle(userMessage);
         }
-
-        // Get AI response
         const res = await askGemini(userMessage);
         setResponse(res);
         setInput("");
-        
-        // Save assistant response
         await saveMessageToConversation(res, 'assistant');
-        
-        // Reload conversation messages to show the new ones
         await loadConversationMessages(currentConversationId);
-        
         setIsThinking(false);
         await speakResponse(res);
       } catch (error) {
@@ -246,7 +203,7 @@ function MainScreen() {
   const handleConversationSelect = async (conversationId) => {
     setCurrentConversationId(conversationId);
     await loadConversationMessages(conversationId);
-    setSidebarOpen(false); // Close sidebar on mobile after selection
+    setSidebarOpen(false);
   };
 
   const handleNewConversation = async (conversationId) => {
@@ -254,14 +211,13 @@ function MainScreen() {
     setConversationMessages([]);
     setResponse("");
     setInput("");
-    setSidebarOpen(false); // Close sidebar on mobile after creation
+    setSidebarOpen(false);
   };
 
   const toggleSidebar = () => {
     setSidebarOpen(!sidebarOpen);
   };
 
-  // Props for components
   const voiceControlsProps = {
     isListening,
     isSupported,
@@ -294,7 +250,6 @@ function MainScreen() {
     setShowDebug
   };
 
-  // Show loading screen while checking authentication
   if (authLoading) {
     return (
       <div className="flex items-center justify-center h-screen bg-white">
@@ -306,14 +261,12 @@ function MainScreen() {
     );
   }
 
-  // Show authentication screen if user is not logged in
   if (!user) {
     return <Authentication />;
   }
 
   return (
-    <div className="relative h-screen w-full bg-gray-50 flex">
-      {/* Conversation Sidebar */}
+    <div className="relative h-screen w-full bg-white flex">
       <ConversationSidebar
         currentConversationId={currentConversationId}
         onConversationSelect={handleConversationSelect}
@@ -321,22 +274,10 @@ function MainScreen() {
         isOpen={sidebarOpen}
         onToggle={toggleSidebar}
       />
-      {/*Header*/}
-      <Header 
-      isSidebarOpen={sidebarOpen}
-      isSidebarCollapsed={false} // Replace with actual collapsed state if you make it global
-/>
-
-
-
-      {/* Main Content Area */}
-      <div className="flex-1 flex flex-col relative pt-16">
-        {/* Mobile Header */}
-        <div className="md:hidden flex items-center justify-between p-4 bg-white border-b border-gray-200">
-          <button
-            onClick={toggleSidebar}
-            className="p-2 hover:bg-gray-100 rounded-lg"
-          >
+      <Header isSidebarOpen={sidebarOpen} isSidebarCollapsed={false} />
+      <div className="flex-1 flex flex-col relative pt-16 bg-white">
+        <div className="md:hidden flex items-center justify-between p-4 bg-white border-b border-gray-200=">
+          <button onClick={toggleSidebar} className="p-2 hover:bg-gray-100 rounded-lg">
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
             </svg>
@@ -345,45 +286,39 @@ function MainScreen() {
           <div className="w-10" />
         </div>
 
-
-        
-
-        {/* Chat Content */}
-        <div className="flex-1 w-full p-4 lg:p-6 bg-white overflow-y-auto">
-          <div className="max-w-3xl mx-auto pt-4 md:pt-20">
-            {/* Desktop Title */}
-            <h1 className="hidden md:block text-3xl font-bold mb-6 text-gray-800 text-center">
-              MedPal
+        <div className="flex-1 w-full p-4 lg:p-6 overflow-y-auto flex justify-center">
+          <div className="w-full space-y-6">
+            <h1 className="text-3xl md:text-4xl font-bold text-center text-[#ED1C24]">
+              AI Medical Assistant
             </h1>
-                    {/* Avatar Section */}
-            <div className="relative bg-white">
-            <AvatarContainer 
-            isSpeaking={isSpeaking} 
-            currentAudio={ttsService.currentAudio}
-            showDebug={showDebug}
-          />
-        </div>
-            {/* Status Indicators */}
+
+            <div className="flex justify-center">
+              <AvatarContainer 
+                isSpeaking={isSpeaking} 
+                currentAudio={ttsService.currentAudio}
+                showDebug={showDebug}
+              />
+            </div>
+
             <StatusIndicators {...statusProps} />
 
-            {/* Conversation History */}
             {conversationMessages.length > 0 && (
-              <div className="mb-6 space-y-4">
-                <div className="max-h-60 overflow-y-auto space-y-3 p-4 bg-gray-50 rounded-xl border">
+              <div className="space-y-4">
+                <div className="max-h-60 overflow-y-auto space-y-3 p-4 bg-gray-50 rounded-xl border border-gray-200">
                   {conversationMessages.map((message, index) => (
                     <div
                       key={message.id || index}
                       className={`p-4 rounded-xl ${
                         message.role === 'user'
-                          ? 'bg-blue-500 text-white ml-8'
+                          ? 'bg-[#ED1C24] text-white ml-8'
                           : 'bg-white text-gray-800 mr-8 border border-gray-200'
                       }`}
                     >
-                      <div className="flex items-start gap-2 mb-2">
-                        <span className="font-semibold text-xs uppercase tracking-wide opacity-75">
+                      <div className="flex items-start gap-2 mb-2 text-xs">
+                        <span className="font-semibold uppercase tracking-wide opacity-75">
                           {message.role === 'user' ? 'You' : 'Assistant'}
                         </span>
-                        <span className="text-xs opacity-50">
+                        <span className="opacity-50">
                           {new Date(message.created_at).toLocaleTimeString()}
                         </span>
                       </div>
@@ -394,7 +329,6 @@ function MainScreen() {
               </div>
             )}
 
-            {/* Chat Input */}
             <ChatInput 
               input={input}
               setInput={setInput}
@@ -402,6 +336,7 @@ function MainScreen() {
               voiceControlsProps={voiceControlsProps}
               onSubmit={handleSubmit}
             />
+
             <KeyParts response={response} />
           </div>
         </div>
