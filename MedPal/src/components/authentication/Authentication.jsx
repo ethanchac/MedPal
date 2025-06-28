@@ -109,7 +109,7 @@ export default function Authentication() {
         {/* Right side - White section */}
         <div className="bg-white w-1/2 p-10 flex flex-col justify-center">
           <h2 className="text-red-500 text-3xl font-bold mb-6">
-            {authMode === 'signin' ? 'Welcome Back!' : 'Welcome, Please Sign Up'}
+            {authMode === 'signin' ? 'Welcome Back!' : 'Hello, Please Sign Up'}
           </h2>
 
           <button
