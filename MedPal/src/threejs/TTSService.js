@@ -1,4 +1,4 @@
-// TTSService.js - Text-to-Speech service with ElevenLabs and browser backup
+// TTSService.js - Fixed version with proper browser TTS audio object for lip sync
 
 // ElevenLabs configuration
 const ELEVEN_API_KEY = "sk_3871da300d6800b32af45290ac1cd889a75b425d43bfaa50";
@@ -17,6 +17,8 @@ class TTSService {
     this.browserVoices = [];
     this.bestFemaleVoice = null;
     this.mode = TTS_MODES.ELEVENLABS_WITH_FALLBACK;
+    this.currentUtterance = null; // Track browser utterance separately
+    this.audioContext = null;
     this.loadBrowserVoices();
   }
 
@@ -27,6 +29,7 @@ class TTSService {
       if (voices.length > 0) {
         this.browserVoices = voices;
         this.bestFemaleVoice = this.findBestFemaleVoice(voices);
+        console.log('Best female voice found:', this.bestFemaleVoice?.name);
       }
     };
 
@@ -136,7 +139,40 @@ class TTSService {
     }
   }
 
-  // Browser TTS with optimized female voice
+  // Create a mock audio object for browser TTS that lip sync can use
+  createBrowserTTSAudioObject(utterance) {
+    const mockAudio = {
+      // Properties that lip sync might check
+      currentTime: 0,
+      duration: 0,
+      paused: false,
+      ended: false,
+      
+      // Methods
+      pause: () => {
+        window.speechSynthesis.cancel();
+        mockAudio.paused = true;
+      },
+      
+      play: () => {
+        mockAudio.paused = false;
+        return Promise.resolve();
+      },
+      
+      // Event handlers that can be set
+      onplay: null,
+      onended: null,
+      onloadstart: null,
+      
+      // Reference to the actual utterance
+      _utterance: utterance,
+      _isBrowserTTS: true
+    };
+
+    return mockAudio;
+  }
+
+  // Browser TTS with optimized female voice and proper audio object
   async speakWithBrowser(text, onStart, onEnd) {
     return new Promise((resolve, reject) => {
       if (!window.speechSynthesis) {
@@ -149,6 +185,7 @@ class TTSService {
 
       setTimeout(() => {
         const utterance = new SpeechSynthesisUtterance(text);
+        this.currentUtterance = utterance;
         
         // Use the best female voice we found
         if (this.bestFemaleVoice) {
@@ -182,22 +219,33 @@ class TTSService {
         let hasStarted = false;
         let hasEnded = false;
 
+        // Create mock audio object for lip sync compatibility
+        const mockAudio = this.createBrowserTTSAudioObject(utterance);
+
         utterance.onstart = () => {
           hasStarted = true;
+          mockAudio.paused = false;
+          if (mockAudio.onplay) mockAudio.onplay();
           if (onStart) onStart();
+          console.log('Browser TTS started with mock audio object');
         };
 
         utterance.onend = () => {
           if (!hasEnded) {
             hasEnded = true;
+            mockAudio.ended = true;
+            mockAudio.paused = true;
+            if (mockAudio.onended) mockAudio.onended();
             if (onEnd) onEnd();
-            resolve();
+            resolve(mockAudio); // Return the mock audio object
           }
         };
 
         utterance.onerror = (event) => {
           if (!hasEnded) {
             hasEnded = true;
+            mockAudio.ended = true;
+            mockAudio.paused = true;
             // Don't log interrupted errors as they're expected when stopping
             if (event.error !== 'interrupted') {
               console.error('Browser TTS error:', event.error);
@@ -205,7 +253,7 @@ class TTSService {
             if (onEnd) onEnd();
             // Don't reject on interrupted errors
             if (event.error === 'interrupted') {
-              resolve();
+              resolve(mockAudio);
             } else {
               reject(new Error(`Browser TTS error: ${event.error}`));
             }
@@ -214,10 +262,10 @@ class TTSService {
 
         try {
           window.speechSynthesis.speak(utterance);
-          this.currentAudio = { 
-            pause: () => window.speechSynthesis.cancel(),
-            currentTime: 0 
-          };
+          
+          // Set this as current audio immediately so lip sync can detect it
+          this.currentAudio = mockAudio;
+          
         } catch (error) {
           if (!hasEnded) {
             hasEnded = true;
@@ -240,28 +288,30 @@ class TTSService {
 
     try {
       if (this.mode === TTS_MODES.BROWSER_ONLY) {
-        // Use browser TTS only
-        await this.speakWithBrowser(cleanText, onStart, onEnd);
-        return { provider: 'browser', success: true };
+        // Use browser TTS only - now returns proper audio object
+        const audioObject = await this.speakWithBrowser(cleanText, onStart, onEnd);
+        this.currentAudio = audioObject;
+        return { provider: 'browser', success: true, audioObject };
       }
 
       if (this.mode === TTS_MODES.ELEVENLABS_ONLY) {
         // Use ElevenLabs only (no fallback)
         this.currentAudio = await this.speakWithElevenLabs(cleanText, onStart, onEnd);
-        return { provider: 'elevenlabs', success: true };
+        return { provider: 'elevenlabs', success: true, audioObject: this.currentAudio };
       }
 
       if (this.mode === TTS_MODES.ELEVENLABS_WITH_FALLBACK) {
         // Try ElevenLabs first, fallback to browser
         try {
           this.currentAudio = await this.speakWithElevenLabs(cleanText, onStart, onEnd);
-          return { provider: 'elevenlabs', success: true };
+          return { provider: 'elevenlabs', success: true, audioObject: this.currentAudio };
         } catch (elevenLabsError) {
           console.warn('ElevenLabs failed, falling back to browser TTS:', elevenLabsError.message);
           
           // Fallback to browser TTS
-          await this.speakWithBrowser(cleanText, onStart, onEnd);
-          return { provider: 'browser', success: true, fallback: true };
+          const audioObject = await this.speakWithBrowser(cleanText, onStart, onEnd);
+          this.currentAudio = audioObject;
+          return { provider: 'browser', success: true, fallback: true, audioObject };
         }
       }
 
@@ -295,7 +345,9 @@ class TTSService {
     // Stop ElevenLabs audio
     if (this.currentAudio && this.currentAudio.pause) {
       this.currentAudio.pause();
-      this.currentAudio.currentTime = 0;
+      if (this.currentAudio.currentTime !== undefined) {
+        this.currentAudio.currentTime = 0;
+      }
     }
     
     // Stop browser TTS
@@ -304,6 +356,24 @@ class TTSService {
     }
     
     this.currentAudio = null;
+    this.currentUtterance = null;
+  }
+
+  // Get current audio object (for lip sync)
+  getCurrentAudio() {
+    return this.currentAudio;
+  }
+
+  // Check if currently speaking
+  isSpeaking() {
+    if (this.currentAudio) {
+      if (this.currentAudio._isBrowserTTS) {
+        return window.speechSynthesis.speaking;
+      } else {
+        return !this.currentAudio.paused && !this.currentAudio.ended;
+      }
+    }
+    return false;
   }
 
   // Set TTS mode
