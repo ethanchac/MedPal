@@ -22,7 +22,7 @@ const ChatInput = ({
       <div className="relative mb-4">
         <textarea
           className="w-full p-4 border-2 border-gray-300 rounded-xl pr-20 resize-none focus:border-blue-500 focus:outline-none transition-colors text-lg"
-          rows={4}
+          rows={2}
           placeholder="Describe your symptoms or click the microphone to speak..."
           value={input}
           onChange={(e) => setInput(e.target.value)}

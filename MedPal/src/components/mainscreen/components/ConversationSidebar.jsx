@@ -12,6 +12,7 @@ const ConversationSidebar = ({
   onToggle,
   isCollapsed,
   onToggleCollapse
+
 }) => {
   const [conversations, setConversations] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -73,7 +74,6 @@ const ConversationSidebar = ({
     setEditingId(conversation.id);
     setEditTitle(conversation.title);
   };
-
 
   const handleSaveTitle = async (conversationId) => {
     if (!editTitle.trim()) {
