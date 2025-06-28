@@ -252,7 +252,7 @@ function MainScreen() {
   const handleConversationSelect = async (conversationId) => {
     setCurrentConversationId(conversationId);
     await loadConversationMessages(conversationId);
-    setSidebarOpen(false);
+    setSidebarOpen(true);
   };
 
 
@@ -261,7 +261,7 @@ function MainScreen() {
     setConversationMessages([]);
     setResponse("");
     setInput("");
-    setSidebarOpen(false);
+    setSidebarOpen(true);
   };
 
 
