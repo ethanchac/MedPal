@@ -1,6 +1,7 @@
 // components/ConversationSidebar.jsx
 import React, { useState, useEffect } from 'react';
 import { ConversationService } from '../../../data/conversationService';
+import MedPalLogo from '../../../assets/MedPal2.png';
 
 const ConversationSidebar = ({ 
   currentConversationId, 
@@ -111,7 +112,11 @@ const ConversationSidebar = ({
         <div className={`p-2 border-b border-red-800 ${isCollapsed ? 'px-2' : 'px-4'}`}>
           <div className="flex items-center justify-between">
             {!isCollapsed && (
-              <h2 className="text-lg font-semibold">Chats</h2>
+              <img 
+                src={MedPalLogo} 
+                alt="MedPal Logo" 
+                className="h-10 w-auto"
+              />
             )}
             <button
               onClick={isCollapsed ? toggleCollapse : (window.innerWidth >= 768 ? toggleCollapse : onToggle)}
