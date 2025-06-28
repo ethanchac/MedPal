@@ -1,43 +1,20 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { supabase } from '../../data/supabase-client.js';
 
 const Authentication = () => {
-  const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [authMode, setAuthMode] = useState('signin'); // 'signin' or 'signup'
   const [formData, setFormData] = useState({
     email: '',
     password: '',
-    confirmPassword: ''
+    confirmPassword: '',
   });
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
-
-  // Check if user is already logged in
-  useEffect(() => {
-    const getSession = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      setUser(session?.user ?? null);
-      setLoading(false);
-    };
-
-    getSession();
-
-    // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event, session) => {
-        setUser(session?.user ?? null);
-        setLoading(false);
-      }
-    );
-
-    return () => subscription.unsubscribe();
-  }, []);
 
   const handleInputChange = (e) => {
     setFormData({
       ...formData,
-      [e.target.name]: e.target.value
+      [e.target.name]: e.target.value,
     });
     setError('');
     setMessage('');
@@ -45,20 +22,19 @@ const Authentication = () => {
 
   const handleSignUp = async (e) => {
     e.preventDefault();
-    
+
     if (formData.password !== formData.confirmPassword) {
       setError('Passwords do not match');
       return;
     }
-
     if (formData.password.length < 6) {
       setError('Password must be at least 6 characters');
       return;
     }
 
     setLoading(true);
-    
-    const { data, error } = await supabase.auth.signUp({
+
+    const { error } = await supabase.auth.signUp({
       email: formData.email,
       password: formData.password,
     });
@@ -69,130 +45,182 @@ const Authentication = () => {
       setMessage('Check your email for the confirmation link!');
       setFormData({ email: '', password: '', confirmPassword: '' });
     }
-    
+
     setLoading(false);
-  };
-
-  const handleSignIn = async (e) => {
-    e.preventDefault();
-    setLoading(true);
-    
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email: formData.email,
-      password: formData.password,
-    });
-
-    if (error) {
-      setError(error.message);
-    } else {
-      setMessage('Successfully signed in!');
-      setFormData({ email: '', password: '', confirmPassword: '' });
-    }
-    
-    setLoading(false);
-  };
-
-  const handleSignOut = async () => {
-    const { error } = await supabase.auth.signOut();
-    if (error) {
-      setError(error.message);
-    } else {
-      setMessage('Successfully signed out!');
-    }
   };
 
   const handleGoogleSignIn = async () => {
-    const { data, error } = await supabase.auth.signInWithOAuth({
+    const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
     });
-
     if (error) {
       setError(error.message);
     }
   };
 
-  if (loading) {
-    return <div>Loading...</div>;
-  }
-
-  if (user) {
-    return (
-      <div>
-        <h2>Welcome!</h2>
-        <div>
-          <p>Logged in as: {user.email}</p>
-          <button onClick={handleSignOut}>
-            Sign Out
-          </button>
-        </div>
-        {message && <div>{message}</div>}
-        {error && <div>{error}</div>}
-      </div>
-    );
-  }
-
   return (
-    <div>
-      <h2>{authMode === 'signin' ? 'Sign In' : 'Sign Up'}</h2>
-
-      <form onSubmit={authMode === 'signin' ? handleSignIn : handleSignUp}>
-        <div>
-          <label>Email</label>
-          <input
-            type="email"
-            name="email"
-            value={formData.email}
-            onChange={handleInputChange}
-            required
-          />
+    <div style={{
+      display: 'flex',
+      minHeight: '100vh',
+      fontFamily: 'sans-serif',
+    }}>
+      {/* Left Section */}
+      <div style={{
+        flex: 1,
+        backgroundColor: '#f44336',
+        color: '#fff',
+        padding: '2rem',
+        display: 'flex',
+        flexDirection: 'column',
+        justifyContent: 'center',
+        alignItems: 'center',
+        borderTopLeftRadius: '2rem',
+        borderBottomLeftRadius: '2rem'
+      }}>
+        <div style={{
+          backgroundColor: '#fff',
+          color: '#f44336',
+          borderRadius: '50%',
+          width: '80px',
+          height: '80px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          fontWeight: 'bold',
+          fontSize: '1.2rem',
+        }}>
+          MedPal
         </div>
-
-        <div>
-          <label>Password</label>
-          <input
-            type="password"
-            name="password"
-            value={formData.password}
-            onChange={handleInputChange}
-            required
-          />
+        <p style={{
+          marginTop: '2rem',
+          textAlign: 'center',
+          fontSize: '1.2rem',
+          maxWidth: '300px',
+        }}>
+          Feeling sick? MedPal can help you diagnose your illness in an instance.
+        </p>
+        <div style={{
+          marginTop: '2rem',
+        }}>
+          <img src="/assets/Stethoscope.png" alt="Stethoscope" style={{ width: '120px' }} />
         </div>
+      </div>
 
-        {authMode === 'signup' && (
-          <div>
-            <label>Confirm Password</label>
+      {/* Right Section */}
+      <div style={{
+        flex: 1,
+        backgroundColor: '#fff',
+        padding: '3rem',
+        borderTopRightRadius: '2rem',
+        borderBottomRightRadius: '2rem',
+        display: 'flex',
+        flexDirection: 'column',
+        justifyContent: 'center'
+      }}>
+        <h2 style={{
+          color: '#f44336',
+          marginBottom: '1rem'
+        }}>
+          Welcome, Please Sign Up
+        </h2>
+
+        <button
+          onClick={handleGoogleSignIn}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            backgroundColor: '#fff',
+            border: '1px solid #ccc',
+            padding: '0.5rem 1rem',
+            borderRadius: '4px',
+            cursor: 'pointer',
+            marginBottom: '1.5rem',
+          }}
+        >
+          <img
+            src="https://developers.google.com/identity/images/g-logo.png"
+            alt="Google"
+            style={{ width: '20px', marginRight: '0.5rem' }}
+          />
+          Sign up with Google
+        </button>
+
+        <form onSubmit={handleSignUp}>
+          <div style={{ marginBottom: '1rem' }}>
+            <label style={{ color: '#f44336' }}>Email</label>
+            <input
+              type="email"
+              name="email"
+              value={formData.email}
+              onChange={handleInputChange}
+              required
+              style={{
+                width: '100%',
+                border: 'none',
+                borderBottom: '2px solid #f44336',
+                padding: '0.5rem',
+                outline: 'none',
+              }}
+            />
+          </div>
+
+          <div style={{ marginBottom: '1rem' }}>
+            <label style={{ color: '#f44336' }}>Password</label>
+            <input
+              type="password"
+              name="password"
+              value={formData.password}
+              onChange={handleInputChange}
+              required
+              style={{
+                width: '100%',
+                border: 'none',
+                borderBottom: '2px solid #f44336',
+                padding: '0.5rem',
+                outline: 'none',
+              }}
+            />
+          </div>
+
+          <div style={{ marginBottom: '1.5rem' }}>
+            <label style={{ color: '#f44336' }}>Confirm Password</label>
             <input
               type="password"
               name="confirmPassword"
               value={formData.confirmPassword}
               onChange={handleInputChange}
               required
+              style={{
+                width: '100%',
+                border: 'none',
+                borderBottom: '2px solid #f44336',
+                padding: '0.5rem',
+                outline: 'none',
+              }}
             />
           </div>
-        )}
 
-        <button type="submit" disabled={loading}>
-          {loading ? 'Loading...' : (authMode === 'signin' ? 'Sign In' : 'Sign Up')}
-        </button>
-      </form>
+          <button
+            type="submit"
+            disabled={loading}
+            style={{
+              backgroundColor: '#f44336',
+              color: '#fff',
+              border: 'none',
+              padding: '0.75rem 1.5rem',
+              borderRadius: '999px',
+              fontWeight: 'bold',
+              cursor: 'pointer',
+              fontSize: '1rem',
+            }}
+          >
+            {loading ? 'Loading...' : 'Sign Up'}
+          </button>
+        </form>
 
-      <div>
-        <button onClick={handleGoogleSignIn}>
-          Sign in with Google
-        </button>
+        {error && <p style={{ color: 'red', marginTop: '1rem' }}>{error}</p>}
+        {message && <p style={{ color: 'green', marginTop: '1rem' }}>{message}</p>}
       </div>
-
-      <div>
-        <button onClick={() => setAuthMode(authMode === 'signin' ? 'signup' : 'signin')}>
-          {authMode === 'signin' 
-            ? "Don't have an account? Sign up" 
-            : "Already have an account? Sign in"
-          }
-        </button>
-      </div>
-
-      {message && <div>{message}</div>}
-      {error && <div>{error}</div>}
     </div>
   );
 };
