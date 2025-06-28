@@ -1,4 +1,5 @@
-import React from 'react';
+import React, { useState } from 'react';
+import { Volume2, ChevronDown } from 'lucide-react';
 import { TTS_MODES } from '../../../threejs/TTSService';
 import ttsService from '../../../threejs/TTSService';
 
@@ -7,94 +8,108 @@ const VoiceSettings = ({
   setTtsMode, 
   testVoice, 
   isSpeaking, 
-  isThinking,
-  lastUsedProvider,
-  showDebug,
-  setShowDebug
+  isThinking
 }) => {
+  const [isOpen, setIsOpen] = useState(false);
+
+  const voiceModes = [
+    {
+      value: TTS_MODES.ELEVENLABS_WITH_FALLBACK,
+      label: "ElevenLabs + Backup",
+      description: "Premium with fallback"
+    },
+    {
+      value: TTS_MODES.ELEVENLABS_ONLY,
+      label: "ElevenLabs Only",
+      description: "Premium quality"
+    },
+    {
+      value: TTS_MODES.BROWSER_ONLY,
+      label: "Browser Voice",
+      description: "Free option"
+    }
+  ];
+
+  const currentMode = voiceModes.find(mode => mode.value === ttsMode);
+
   return (
-    <div className="p-6 bg-blue-50 rounded-xl border border-blue-200 shadow-sm">
-      <h3 className="font-semibold mb-4 text-blue-900 text-lg">Voice Settings</h3>
-      
-      {/* TTS Mode Selection */}
-      <div className="mb-3">
-        <label className="text-sm font-medium mb-2 block text-blue-800">Voice Mode:</label>
-        <div className="space-y-2">
-          <label className="flex items-center">
-            <input
-              type="radio"
-              name="ttsMode"
-              value={TTS_MODES.ELEVENLABS_WITH_FALLBACK}
-              checked={ttsMode === TTS_MODES.ELEVENLABS_WITH_FALLBACK}
-              onChange={(e) => setTtsMode(e.target.value)}
-              className="mr-2"
-            />
-            <span className="text-sm">ElevenLabs with Browser Backup (Recommended)</span>
-          </label>
-          <label className="flex items-center">
-            <input
-              type="radio"
-              name="ttsMode"
-              value={TTS_MODES.ELEVENLABS_ONLY}
-              checked={ttsMode === TTS_MODES.ELEVENLABS_ONLY}
-              onChange={(e) => setTtsMode(e.target.value)}
-              className="mr-2"
-            />
-            <span className="text-sm">ElevenLabs Only (Premium Quality)</span>
-          </label>
-          <label className="flex items-center">
-            <input
-              type="radio"
-              name="ttsMode"
-              value={TTS_MODES.BROWSER_ONLY}
-              checked={ttsMode === TTS_MODES.BROWSER_ONLY}
-              onChange={(e) => setTtsMode(e.target.value)}
-              className="mr-2"
-            />
-            <span className="text-sm">Browser Voice Only (Token Free)</span>
-          </label>
+    <div className="relative">
+      {/* Dropdown Menu */}
+      {isOpen && (
+        <div className="absolute top-full mt-2 left-0 w-80 bg-white border border-gray-200 rounded-lg shadow-lg py-2 z-50">
+          <div className="px-3 py-2 text-xs font-medium text-gray-500 border-b border-gray-100">
+            Voice Mode Selection
+          </div>
+          
+          {/* Voice Mode Options */}
+          <div className="py-2">
+            {voiceModes.map((mode) => (
+              <button
+                key={mode.value}
+                onClick={() => {
+                  setTtsMode(mode.value);
+                }}
+                className={`w-full px-3 py-2 text-left hover:bg-gray-50 transition-colors ${
+                  mode.value === ttsMode ? 'bg-blue-50 text-blue-700' : 'text-gray-700'
+                }`}
+              >
+                <div className="text-sm font-medium">{mode.label}</div>
+                <div className="text-xs text-gray-500">{mode.description}</div>
+              </button>
+            ))}
+          </div>
+
+          {/* Test Buttons */}
+          <div className="border-t border-gray-100 pt-2">
+            <button
+              onClick={() => {
+                testVoice();
+              }}
+              disabled={isSpeaking || isThinking}
+              className="w-full px-3 py-2 text-sm text-blue-600 hover:bg-blue-50 disabled:text-gray-400 disabled:hover:bg-transparent transition-colors text-left"
+            >
+              Test Current Mode
+            </button>
+            <button
+              onClick={() => {
+                ttsService.testVoice(TTS_MODES.BROWSER_ONLY);
+              }}
+              disabled={isSpeaking || isThinking}
+              className="w-full px-3 py-2 text-sm text-green-600 hover:bg-green-50 disabled:text-gray-400 disabled:hover:bg-transparent transition-colors text-left"
+            >
+              Test Browser Voice
+            </button>
+          </div>
+
+          {/* Close button */}
+          <div className="border-t border-gray-100 pt-2">
+            <button
+              onClick={() => setIsOpen(false)}
+              className="w-full px-3 py-2 text-sm text-gray-500 hover:bg-gray-50 transition-colors text-center"
+            >
+              Close
+            </button>
+          </div>
         </div>
-      </div>
+      )}
 
-      {/* Test Buttons */}
-      <div className="flex flex-wrap gap-2 mb-3">
-        <button 
-          onClick={testVoice}
-          disabled={isSpeaking || isThinking}
-          className="text-sm bg-blue-500 text-white px-3 py-1 rounded hover:bg-blue-600 disabled:bg-gray-400 transition-colors"
-        >
-          Test Current Mode
-        </button>
-        <button 
-          onClick={() => ttsService.testVoice(TTS_MODES.BROWSER_ONLY)}
-          disabled={isSpeaking || isThinking}
-          className="text-sm bg-green-500 text-white px-3 py-1 rounded hover:bg-green-600 disabled:bg-gray-400 transition-colors"
-        >
-          Test Browser Voice
-        </button>
-      </div>
+      {/* Main Button */}
+      <button
+        onClick={() => setIsOpen(!isOpen)}
+        className="flex items-center gap-2 px-3 py-2 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors shadow-sm"
+      >
+        <Volume2 className="w-4 h-4 text-gray-600" />
+        <span className="text-sm text-gray-700">{currentMode?.label}</span>
+        <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+      </button>
 
-      {/* Debug Toggle */}
-      <div className="mb-3">
-        <label className="flex items-center">
-          <input
-            type="checkbox"
-            checked={showDebug}
-            onChange={(e) => setShowDebug(e.target.checked)}
-            className="mr-2"
-          />
-          <span className="text-sm">Show Debug Info</span>
-        </label>
-      </div>
-
-      {/* Current Status */}
-      <div className="text-xs text-gray-600 space-y-1 bg-white p-2 rounded border">
-        <div>Current Mode: {ttsMode.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}</div>
-        {lastUsedProvider && (
-          <div>Last Used: {lastUsedProvider === 'elevenlabs' ? 'ElevenLabs (Rachel)' : `Browser (${ttsService.getBrowserVoicesInfo().bestFemale})`}</div>
-        )}
-        <div>Browser Voice Available: {ttsService.getBrowserVoicesInfo().bestFemale}</div>
-      </div>
+      {/* Overlay to close menu when clicking outside */}
+      {isOpen && (
+        <div 
+          className="fixed inset-0 z-40" 
+          onClick={() => setIsOpen(false)}
+        />
+      )}
     </div>
   );
 };
