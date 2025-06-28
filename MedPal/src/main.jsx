@@ -6,6 +6,6 @@ import Authentication from './components/authentication/Authentication.jsx'
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
-    <Authentication />
+    <App />
   </StrictMode>,
 )

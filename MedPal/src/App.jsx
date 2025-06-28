@@ -1,4 +1,4 @@
-import MainScreen from './components/MainScreen'
+import MainScreen from './components/mainscreen/MainScreen'
 
 function App() {
   return (
