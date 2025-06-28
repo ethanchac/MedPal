@@ -127,8 +127,8 @@ export default function AvatarViewer({
       <AvatarErrorBoundary>
         <Canvas 
           camera={{ 
-            position: [0, 0.5, 2.5],  // Moved camera up and back for better head/shoulders view
-            fov: 35,                  // Slightly wider field of view
+            position: [0, 1.5, 2.5],  // Moved camera up and back for better head/shoulders view
+            fov: 30,                  // Slightly wider field of view
             near: 0.1,
             far: 1000
           }}
@@ -188,12 +188,6 @@ export default function AvatarViewer({
         </div>
       )}
       
-      {/* Performance overlay */}
-      {process.env.NODE_ENV === 'development' && (
-        <div className="absolute bottom-4 right-4 bg-green-900 bg-opacity-75 text-green-300 p-2 rounded text-xs">
-          DEV MODE - WebGL: {webglSupported ? '✅' : '❌'}
-        </div>
-      )}
     </div>
   );
 }

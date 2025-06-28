@@ -17,6 +17,7 @@ import ChatResponse from "./components/ChatResponse";
 import VoiceSettings from "./components/VoiceSettings";
 import ConversationSidebar from "./components/ConversationSidebar";
 import Authentication from "../authentication/Authentication";
+import Header from "./components/Header";
 
 function MainScreen() {
   // Authentication state
@@ -90,6 +91,7 @@ function MainScreen() {
 
   // Check if database tables exist and initialize
   useEffect(() => {
+    console.log("USER STUFF", user);
     const checkDatabase = async () => {
       if (!user) return;
 
@@ -317,9 +319,16 @@ function MainScreen() {
         isOpen={sidebarOpen}
         onToggle={toggleSidebar}
       />
+      {/*Header*/}
+      <Header 
+      isSidebarOpen={sidebarOpen}
+      isSidebarCollapsed={false} // Replace with actual collapsed state if you make it global
+/>
+
+
 
       {/* Main Content Area */}
-      <div className="flex-1 flex flex-col relative">
+      <div className="flex-1 flex flex-col relative pt-16">
         {/* Mobile Header */}
         <div className="md:hidden flex items-center justify-between p-4 bg-white border-b border-gray-200">
           <button
@@ -335,6 +344,7 @@ function MainScreen() {
         </div>
 
 
+        
 
         {/* Chat Content */}
         <div className="flex-1 w-full p-4 lg:p-6 bg-white overflow-y-auto">
@@ -391,11 +401,7 @@ function MainScreen() {
               onSubmit={handleSubmit}
             />
 
-            {/* Response Display */}
-            <ChatResponse response={response} />
 
-            {/* Voice Settings */}
-            <VoiceSettings {...voiceSettingsProps} />
 
             {/* User Info Display */}
             <div className="mt-8 p-4 bg-gray-100 rounded-xl">
@@ -403,6 +409,7 @@ function MainScreen() {
                 <div>
                   <p className="text-sm text-gray-600">Logged in as:</p>
                   <p className="font-semibold text-gray-800">{user.email}</p>
+                  <img url={user.picture}></img>
                 </div>
                 <button
                   onClick={async () => {
