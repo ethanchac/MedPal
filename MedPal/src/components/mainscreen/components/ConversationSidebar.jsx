@@ -3,9 +3,10 @@ import React, { useState, useEffect } from 'react';
 import { ConversationService } from '../../../data/conversationService';
 import MedPalLogo from '../../../assets/MedPal2.png';
 
-const ConversationSidebar = ({ 
-  currentConversationId, 
-  onConversationSelect, 
+
+const ConversationSidebar = ({
+  currentConversationId,
+  onConversationSelect,
   onNewConversation,
   isOpen,
   onToggle,
@@ -19,9 +20,11 @@ const ConversationSidebar = ({
   const [editingId, setEditingId] = useState(null);
   const [editTitle, setEditTitle] = useState('');
 
+
   useEffect(() => {
     loadConversations();
   }, []);
+
 
   const loadConversations = async () => {
     try {
@@ -36,6 +39,7 @@ const ConversationSidebar = ({
     }
   };
 
+
   const handleNewConversation = async () => {
     try {
       const newConv = await ConversationService.createConversation();
@@ -46,9 +50,11 @@ const ConversationSidebar = ({
     }
   };
 
+
   const handleDeleteConversation = async (conversationId, e) => {
     e.stopPropagation();
     if (!window.confirm('Delete this conversation?')) return;
+
 
     try {
       await ConversationService.deleteConversation(conversationId);
@@ -61,11 +67,13 @@ const ConversationSidebar = ({
     }
   };
 
+
   const handleEditTitle = (conversation, e) => {
     e.stopPropagation();
     setEditingId(conversation.id);
     setEditTitle(conversation.title);
   };
+
 
   const handleSaveTitle = async (conversationId) => {
     if (!editTitle.trim()) {
@@ -73,11 +81,12 @@ const ConversationSidebar = ({
       return;
     }
 
+
     try {
       await ConversationService.updateConversationTitle(conversationId, editTitle.trim());
-      setConversations(prev => 
-        prev.map(conv => 
-          conv.id === conversationId 
+      setConversations(prev =>
+        prev.map(conv =>
+          conv.id === conversationId
             ? { ...conv, title: editTitle.trim() }
             : conv
         )
@@ -88,24 +97,28 @@ const ConversationSidebar = ({
     }
   };
 
+
   const handleToggleCollapse = () => {
     if (onToggleCollapse) {
       onToggleCollapse(!isCollapsed);
     }
   };
 
+
   const filteredConversations = conversations.filter(conv =>
     conv.title.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
+
   return (
     <>
       {isOpen && !isCollapsed && (
-        <div 
+        <div
           className="fixed inset-0 bg-black bg-opacity-50 z-40 md:hidden"
           onClick={onToggle}
         />
       )}
+
 
       <div className={`
         fixed top-0 left-0 h-full z-50 transition-all duration-300 ease-in-out
@@ -117,9 +130,9 @@ const ConversationSidebar = ({
         <div className={`p-2 border-b border-red-800 ${isCollapsed ? 'px-2' : 'px-4'}`}>
           <div className="flex items-center justify-between">
             {!isCollapsed && (
-              <img 
-                src={MedPalLogo} 
-                alt="MedPal Logo" 
+              <img
+                src={MedPalLogo}
+                alt="MedPal Logo"
                 className="h-10 w-auto"
               />
             )}
@@ -140,6 +153,7 @@ const ConversationSidebar = ({
             </button>
           </div>
 
+
           {!isCollapsed && (
             <>
               <button
@@ -151,6 +165,7 @@ const ConversationSidebar = ({
                 </svg>
                 New chat
               </button>
+
 
               <div className="mt-3">
                 <div className="relative">
@@ -170,6 +185,7 @@ const ConversationSidebar = ({
           )}
         </div>
 
+
         {isCollapsed && (
           <div className="p-2">
             <button
@@ -183,6 +199,7 @@ const ConversationSidebar = ({
             </button>
           </div>
         )}
+
 
         {!isCollapsed && (
           <div className="flex-1 overflow-y-auto">
@@ -202,8 +219,8 @@ const ConversationSidebar = ({
                     onClick={() => onConversationSelect(conversation.id)}
                     className={`
                       group relative p-3 rounded-lg cursor-pointer transition-all duration-200
-                      ${currentConversationId === conversation.id 
-                        ? 'bg-red-800 border-l-4 border-white' 
+                      ${currentConversationId === conversation.id
+                        ? 'bg-red-800 border-l-4 border-white'
                         : 'hover:bg-red-700'
                       }
                     `}
@@ -260,4 +277,7 @@ const ConversationSidebar = ({
   );
 };
 
+
 export default ConversationSidebar;
+
+
