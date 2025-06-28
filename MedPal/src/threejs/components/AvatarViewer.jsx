@@ -1,8 +1,54 @@
-// AvatarViewer.jsx - Fixed camera settings for full head and shoulders view
-import React, { Suspense, useState, useEffect } from "react";
+import React, { Suspense, useState, useEffect, useRef } from "react";
 import { Canvas } from "@react-three/fiber";
-import { OrbitControls } from "@react-three/drei";
-import AvatarModel from "./AvatarModel";
+import { OrbitControls, useGLTF } from "@react-three/drei";
+
+// Simplified AvatarModel component for testing
+function AvatarModel({ 
+  isSpeaking = false, 
+  modelUrl = "https://models.readyplayer.me/685f5fe6ce6b397456e1ae90.glb",
+  showDebugVisuals = false
+}) {
+  const { scene } = useGLTF(modelUrl);
+  const modelRef = useRef();
+
+  return (
+    <>
+      <primitive 
+        ref={modelRef}
+        object={scene} 
+        scale={1.2}                    // Slightly larger scale
+        position={[0, -1.8, 0]}        // Much lower position to show full torso
+        rotation={[0, 0, 0]}           
+      />
+      
+      {/* Debug helper to show model bounds */}
+      {showDebugVisuals && (
+        <>
+          {/* Ground reference */}
+          <mesh position={[0, -2, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+            <planeGeometry args={[4, 4]} />
+            <meshBasicMaterial color="lightgray" transparent opacity={0.3} />
+          </mesh>
+          
+          {/* Height markers */}
+          <mesh position={[2, -1, 0]}>
+            <boxGeometry args={[0.1, 0.1, 0.1]} />
+            <meshBasicMaterial color="red" />
+          </mesh>
+          <mesh position={[2, 0, 0]}>
+            <boxGeometry args={[0.1, 0.1, 0.1]} />
+            <meshBasicMaterial color="green" />
+          </mesh>
+          <mesh position={[2, 1, 0]}>
+            <boxGeometry args={[0.1, 0.1, 0.1]} />
+            <meshBasicMaterial color="blue" />
+          </mesh>
+        </>
+      )}
+    </>
+  );
+}
+
 
 // Error Boundary Component
 class AvatarErrorBoundary extends React.Component {
@@ -53,100 +99,41 @@ function LoadingFallback() {
   );
 }
 
-// WebGL Support Check
-function WebGLErrorFallback() {
-  return (
-    <div className="flex items-center justify-center h-full bg-gray-100">
-      <div className="text-center p-4">
-        <div className="text-yellow-600 text-lg mb-2">WebGL Not Available</div>
-        <div className="text-sm text-gray-600">
-          Your browser doesn't support WebGL or it's disabled.
-          <br />
-          The avatar won't be visible, but voice features will still work.
-        </div>
-      </div>
-    </div>
-  );
-}
-
 export default function AvatarViewer({ 
   isSpeaking = false, 
   currentAudio = null,
   modelUrl = "https://models.readyplayer.me/685f5fe6ce6b397456e1ae90.glb",
-  enableControls = false,
+  enableControls = true,
   showDebug = false,
   expressiveness = 1.0
 }) {
-  const [webglSupported, setWebglSupported] = useState(true);
-  const [canvasError, setCanvasError] = useState(false);
-
-  // Check WebGL support
-  useEffect(() => {
-    try {
-      const canvas = document.createElement('canvas');
-      const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
-      if (!gl) {
-        setWebglSupported(false);
-      }
-    } catch (error) {
-      console.warn('WebGL check failed:', error);
-      setWebglSupported(false);
-    }
-  }, []);
-
-  if (!webglSupported) {
-    return <WebGLErrorFallback />;
-  }
-
-  if (canvasError) {
-    return (
-      <div className="flex items-center justify-center h-full bg-gray-100">
-        <div className="text-center p-4">
-          <div className="text-red-500 text-lg mb-2">3D Rendering Error</div>
-          <div className="text-sm text-gray-600 mb-4">
-            Unable to initialize 3D graphics. This might be due to:
-            <ul className="list-disc list-inside mt-2 text-left">
-              <li>Hardware limitations</li>
-              <li>Browser WebGL issues</li>
-              <li>Graphics driver problems</li>
-            </ul>
-          </div>
-          <button 
-            onClick={() => setCanvasError(false)}
-            className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
-          >
-            Try Again
-          </button>
-        </div>
-      </div>
-    );
-  }
+  const [cameraSettings, setCameraSettings] = useState({
+    position: [0, 0.5 , 3],   // Further back and centered
+    fov: 7,                 // Wider field of view
+    target: [0, 0.1, 0]        // Look at center
+  });
 
   return (
-    <div className="h-full w-full bg-white relative">
+    <div className="h-full w-full bg-gradient-to-b from-blue-50 to-white relative">
       <AvatarErrorBoundary>
         <Canvas 
           camera={{ 
-            position: [0, 1.3, 1],  // Moved camera up and back for better head/shoulders view
-            fov: 15,                  // Slightly wider field of view
+            position: cameraSettings.position,
+            fov: cameraSettings.fov,
             near: 0.1,
             far: 1000
           }}
-          onCreated={({ gl, camera }) => {
-            // Look at the head area
-            camera.lookAt(0, 0, 0);
-            console.log('Canvas initialized successfully');
-          }}
-          onError={(error) => {
-            console.error('Canvas error:', error);
-            setCanvasError(true);
+          onCreated={({ camera }) => {
+            camera.lookAt(...cameraSettings.target);
+            console.log('Camera positioned for full body view');
           }}
         >
-          {/* Better lighting for head and shoulders */}
-          <ambientLight intensity={0.8} />
-          <directionalLight position={[5, 5, 5]} intensity={0.6} />
+          {/* Improved lighting setup */}
+          <ambientLight intensity={0.6} />
+          <directionalLight position={[5, 5, 5]} intensity={0.8} castShadow />
           <directionalLight position={[-5, 5, 5]} intensity={0.4} />
-          <pointLight position={[0, 2, 2]} intensity={0.3} />
+          <directionalLight position={[0, 5, -5]} intensity={0.3} />
+          <pointLight position={[0, 3, 3]} intensity={0.4} />
           
           {/* Avatar Model */}
           <Suspense fallback={<LoadingFallback />}>
@@ -154,40 +141,43 @@ export default function AvatarViewer({
               isSpeaking={isSpeaking} 
               currentAudio={currentAudio}
               modelUrl={modelUrl}
-              expressiveness={expressiveness}
               showDebugVisuals={showDebug}
             />
           </Suspense>
           
           {/* Camera Controls */}
-          <OrbitControls 
-            enableZoom={enableControls} 
-            enableRotate={enableControls} 
-            enablePan={enableControls}
-            maxDistance={5}     // Allow zooming out more
-            minDistance={1.5}   // Prevent getting too close
-            maxPolarAngle={Math.PI / 2}
-            target={[0, 1, 0]} // Focus on head area
-          />
+          {enableControls && (
+            <OrbitControls 
+              enableZoom={true} 
+              enableRotate={true} 
+              enablePan={false}
+              maxDistance={2.5}    // Closer max distance
+              minDistance={1}      // Closer min distance
+              maxPolarAngle={Math.PI / 2}  
+              minPolarAngle={Math.PI / 6}    
+              target={[0, 0.8, 0]} // Higher target point
+            />
+          )}
         </Canvas>
       </AvatarErrorBoundary>
       
       {/* Debug overlay */}
       {showDebug && (
         <div className="absolute top-4 left-4 bg-black bg-opacity-75 text-white p-3 rounded text-xs max-w-sm">
-          <div className="font-bold mb-2">Avatar Debug Info</div>
-          <div>Speaking: {isSpeaking ? '✅ YES' : '❌ NO'}</div>
-          <div>Audio: {currentAudio ? '🔊 Active' : '🔇 None'}</div>
-          <div>Expressiveness: {expressiveness}x</div>
-          <div className="mt-2 text-yellow-300">
-            Camera positioned for head and shoulders view
+          <div className="font-bold mb-2">Zoomed Head View</div>
+          <div>Camera Position: [0, 0.2, 1.5]</div>
+          <div>Camera FOV: 25°</div>
+          <div>Look At: [0, 0.8, 0]</div>
+          <div>Model Position: [0, -1.8, 0]</div>
+          <div>Model Scale: 1.2</div>
+          <div className="mt-2 text-green-300">
+            ✅ Closer and lower camera angle
           </div>
           <div className="mt-1 text-blue-300">
-            Model scale: 1.0, Position: [0, -0.5, 0]
+            🎯 Focused on face and upper neck
           </div>
         </div>
       )}
-      
     </div>
   );
 }
