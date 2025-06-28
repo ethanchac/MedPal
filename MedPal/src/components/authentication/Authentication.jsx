@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { supabase } from '../../data/supabase-client.js';
+import MedPalLogo from '../../assets/MedPal2.png';
 
 export default function Authentication() {
   const [authMode, setAuthMode] = useState('signin');
@@ -85,8 +86,12 @@ export default function Authentication() {
     <div className="flex min-h-screen font-sans">
       {/* Left Section */}
       <div className="flex-1 bg-red-500 text-white p-8 flex flex-col justify-center items-center rounded-l-2xl">
-        <div className="bg-white text-red-500 rounded-full w-20 h-20 flex items-center justify-center font-bold text-xl">
-          MedPal
+        <div className="bg-white rounded-full w-20 h-20 flex items-center justify-center overflow-hidden">
+          <img
+            src={MedPalLogo}
+            alt="MedPal Logo"
+            className="object-contain w-full h-full"
+          />
         </div>
         <p className="mt-8 text-center text-lg max-w-xs">
           Feeling sick? MedPal can help you diagnose your illness in an instance.
