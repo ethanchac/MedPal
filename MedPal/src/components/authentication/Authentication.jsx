@@ -48,24 +48,37 @@ export default function Authentication() {
   const handleSignIn = async (e) => {
     e.preventDefault();
     setLoading(true);
-    const { error } = await supabase.auth.signInWithPassword({
+    
+    const { data, error } = await supabase.auth.signInWithPassword({
       email: formData.email,
       password: formData.password,
     });
+    
     if (error) {
       setError(error.message);
+      setLoading(false);
     } else {
-      setMessage('Successfully signed in!');
+      // Clear form data on successful sign in
       setFormData({ email: '', password: '', confirmPassword: '' });
+      setMessage('Successfully signed in!');
+      // Don't set loading to false here - let the auth state change handle the redirect
+      // The MainScreen component will handle the user state automatically
     }
-    setLoading(false);
   };
 
   const handleGoogleSignIn = async () => {
+    setLoading(true);
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
+      options: {
+        redirectTo: window.location.origin, // Redirect back to your app
+      }
     });
-    if (error) setError(error.message);
+    if (error) {
+      setError(error.message);
+      setLoading(false);
+    }
+    // Don't set loading to false on success - let auth state change handle it
   };
 
   return (
@@ -95,14 +108,15 @@ export default function Authentication() {
 
         <button
           onClick={handleGoogleSignIn}
-          className="flex items-center border border-gray-300 px-4 py-2 rounded mb-6 hover:bg-gray-50 transition"
+          disabled={loading}
+          className="flex items-center justify-center border border-gray-300 px-4 py-2 rounded mb-6 hover:bg-gray-50 transition disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <img
             src="https://developers.google.com/identity/images/g-logo.png"
             alt="Google"
             className="w-5 mr-2"
           />
-          Sign in with Google
+          {loading && authMode === 'google' ? 'Signing in...' : 'Sign in with Google'}
         </button>
 
         <form onSubmit={authMode === 'signin' ? handleSignIn : handleSignUp} className="space-y-4">
@@ -114,7 +128,8 @@ export default function Authentication() {
               value={formData.email}
               onChange={handleInputChange}
               required
-              className="w-full border-b-2 border-red-500 focus:outline-none py-2"
+              disabled={loading}
+              className="w-full border-b-2 border-red-500 focus:outline-none py-2 disabled:opacity-50"
             />
           </div>
 
@@ -126,7 +141,8 @@ export default function Authentication() {
               value={formData.password}
               onChange={handleInputChange}
               required
-              className="w-full border-b-2 border-red-500 focus:outline-none py-2"
+              disabled={loading}
+              className="w-full border-b-2 border-red-500 focus:outline-none py-2 disabled:opacity-50"
             />
           </div>
 
@@ -139,7 +155,8 @@ export default function Authentication() {
                 value={formData.confirmPassword}
                 onChange={handleInputChange}
                 required
-                className="w-full border-b-2 border-red-500 focus:outline-none py-2"
+                disabled={loading}
+                className="w-full border-b-2 border-red-500 focus:outline-none py-2 disabled:opacity-50"
               />
             </div>
           )}
@@ -147,7 +164,7 @@ export default function Authentication() {
           <button
             type="submit"
             disabled={loading}
-            className="bg-red-500 text-white py-2 px-6 rounded-full font-bold text-lg hover:bg-red-600 transition disabled:opacity-50"
+            className="bg-red-500 text-white py-2 px-6 rounded-full font-bold text-lg hover:bg-red-600 transition disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {loading ? 'Loading...' : authMode === 'signin' ? 'Sign In' : 'Sign Up'}
           </button>
@@ -159,7 +176,8 @@ export default function Authentication() {
             setError('');
             setMessage('');
           }}
-          className="mt-4 text-red-500 underline hover:text-red-600 transition"
+          disabled={loading}
+          className="mt-4 text-red-500 underline hover:text-red-600 transition disabled:opacity-50"
         >
           {authMode === 'signin' ? "Don't have an account? Sign Up" : 'Already have an account? Sign In'}
         </button>
