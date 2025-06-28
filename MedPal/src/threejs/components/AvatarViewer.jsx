@@ -127,14 +127,14 @@ export default function AvatarViewer({
       <AvatarErrorBoundary>
         <Canvas 
           camera={{ 
-            position: [0, 1.5, 2.5],  // Moved camera up and back for better head/shoulders view
-            fov: 30,                  // Slightly wider field of view
+            position: [0, 1.3, 1],  // Moved camera up and back for better head/shoulders view
+            fov: 15,                  // Slightly wider field of view
             near: 0.1,
             far: 1000
           }}
           onCreated={({ gl, camera }) => {
             // Look at the head area
-            camera.lookAt(0, 0.5, 0);
+            camera.lookAt(0, 0, 0);
             console.log('Canvas initialized successfully');
           }}
           onError={(error) => {
@@ -167,7 +167,7 @@ export default function AvatarViewer({
             maxDistance={5}     // Allow zooming out more
             minDistance={1.5}   // Prevent getting too close
             maxPolarAngle={Math.PI / 2}
-            target={[0, 0.5, 0]} // Focus on head area
+            target={[0, 1, 0]} // Focus on head area
           />
         </Canvas>
       </AvatarErrorBoundary>
