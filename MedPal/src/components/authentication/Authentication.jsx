@@ -121,7 +121,7 @@ const Authentication = () => {
           color: '#f44336',
           marginBottom: '1rem'
         }}>
-          Welcome, Please Sign Up
+          Welcome, Please Sign in
         </h2>
 
         <button
@@ -142,7 +142,7 @@ const Authentication = () => {
             alt="Google"
             style={{ width: '20px', marginRight: '0.5rem' }}
           />
-          Sign up with Google
+          Sign in with Google
         </button>
 
         <form onSubmit={handleSignUp}>
@@ -182,23 +182,7 @@ const Authentication = () => {
             />
           </div>
 
-          <div style={{ marginBottom: '1.5rem' }}>
-            <label style={{ color: '#f44336' }}>Confirm Password</label>
-            <input
-              type="password"
-              name="confirmPassword"
-              value={formData.confirmPassword}
-              onChange={handleInputChange}
-              required
-              style={{
-                width: '100%',
-                border: 'none',
-                borderBottom: '2px solid #f44336',
-                padding: '0.5rem',
-                outline: 'none',
-              }}
-            />
-          </div>
+
 
           <button
             type="submit"
@@ -214,7 +198,7 @@ const Authentication = () => {
               fontSize: '1rem',
             }}
           >
-            {loading ? 'Loading...' : 'Sign Up'}
+            {loading ? 'Loading...' : 'Sign in'}
           </button>
         </form>
 
