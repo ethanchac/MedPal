@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import { supabase } from '../../data/supabase-client.js';
 import MedPalLogo from '../../assets/MedPal2.png';
 import Stethoscope from '../../assets/Stethoscope.png';
+import Texture from '../../assets/redtexture.jpg';
+
 
 export default function Authentication() {
   const [authMode, setAuthMode] = useState('signin');
@@ -73,18 +75,25 @@ export default function Authentication() {
   };
 
   return (
-    <div className="flex items-center justify-center min-h-screen bg-[#ff9e9e] font-sans">
+    <div className="flex items-center justify-center min-h-screen bg-[#f24b4b] font-sans">
       <div className="w-11/12  h-5/6 max-h-[800px] rounded-3xl overflow-hidden flex">
         
         {/* Left side - Red section */}
-        <div className="flex flex-col justify-between bg-red-500 text-white w-1/2 p-10 relative">
+        <div className="flex flex-col justify-between text-white w-1/2 p-10 relative"
+          style={{
+            backgroundImage: `url(${Texture})`,
+            backgroundSize: 'cover',
+            backgroundRepeat: 'no-repeat',
+            backgroundPosition: 'center',
+          }}>
+        
           <div className="flex flex-col items-start">
             <img
               src={MedPalLogo}
               alt="MedPal Logo"
               className="w-16 h-16 mb-8"
             />
-            <p className="text-lg max-w-[220px] leading-relaxed">
+            <p className="text-lg max-w-[500px] leading-relaxed">
               Feeling sick? MedPal can help you diagnose your illness in an instance
             </p>
           </div>
@@ -100,7 +109,7 @@ export default function Authentication() {
         {/* Right side - White section */}
         <div className="bg-white w-1/2 p-10 flex flex-col justify-center">
           <h2 className="text-red-500 text-3xl font-bold mb-6">
-            Welcome, Please {authMode === 'signin' ? 'Sign In' : 'Sign Up'}
+            {authMode === 'signin' ? 'Welcome Back!' : 'Welcome, Please Sign Up'}
           </h2>
 
           <button
@@ -113,7 +122,7 @@ export default function Authentication() {
               alt="Google"
               className="w-5 mr-2"
             />
-            {loading ? 'Loading...' : 'Sign in with Google'}
+            {loading ? 'Loading...' :  authMode === 'signin' ? 'Sign in with Google' : 'Sign up with Google'}
           </button>
 
           <form onSubmit={authMode === 'signin' ? handleSignIn : handleSignUp} className="space-y-4">
