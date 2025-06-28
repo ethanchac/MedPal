@@ -1,85 +1,87 @@
 import React, { useState, useEffect } from 'react';
-import { BookOpen, Heart, AlertTriangle, Pill, Calendar } from 'lucide-react';
+import { Clipboard } from 'lucide-react';
 
-const KeyParts = ({ response, isVisible = true }) => {
-  const [keyPoints, setKeyPoints] = useState([]);
+const KeyParts = ({ response, conversationId, isVisible = true }) => {
+  const [allNotes, setAllNotes] = useState([]);
+  const [lastConversationId, setLastConversationId] = useState(null);
 
-  // Extract key medical information from AI response
+  // Extract simple key points from AI response
   const extractKeyParts = (text) => {
     if (!text || text.trim().length === 0) return [];
 
     const keyParts = [];
-    const sentences = text.split(/[.!?]+/).filter(s => s.trim().length > 15);
+    const sentences = text.split(/[.!?]+/).filter(s => s.trim().length > 10);
 
-    sentences.forEach((sentence, index) => {
+    sentences.forEach((sentence) => {
       const cleanSentence = sentence.trim();
       if (cleanSentence) {
-        // Categorize based on medical keywords
-        let icon = BookOpen;
-        let color = 'bg-blue-50 border-blue-200 text-blue-800';
-
-        if (/symptom|pain|ache|feel|experience|discomfort/i.test(cleanSentence)) {
-          icon = AlertTriangle;
-          color = 'bg-orange-50 border-orange-200 text-orange-800';
-        } else if (/recommend|suggest|should|treatment|therapy/i.test(cleanSentence)) {
-          icon = Heart;
-          color = 'bg-green-50 border-green-200 text-green-800';
-        } else if (/take|dose|medication|pill|tablet|medicine/i.test(cleanSentence)) {
-          icon = Pill;
-          color = 'bg-purple-50 border-purple-200 text-purple-800';
-        } else if (/follow.?up|appointment|visit|check|monitor/i.test(cleanSentence)) {
-          icon = Calendar;
-          color = 'bg-indigo-50 border-indigo-200 text-indigo-800';
+        // Only keep medical-relevant sentences
+        if (/symptom|pain|ache|feel|experience|discomfort|recommend|suggest|should|treatment|therapy|take|dose|medication|pill|tablet|medicine|follow.?up|appointment|visit|check|monitor|diagnose|condition|test|result/i.test(cleanSentence)) {
+          keyParts.push(cleanSentence);
         }
-
-        keyParts.push({
-          id: `key-${index}`,
-          text: cleanSentence,
-          icon,
-          color
-        });
       }
     });
 
-    // Limit to most important points (max 4)
-    return keyParts.slice(0, 4);
+    return keyParts.slice(0, 3); // Max 3 new notes per response
   };
 
-  // Update key parts when response changes
+  // Clear notes when conversation changes
+  useEffect(() => {
+    if (conversationId !== lastConversationId) {
+      setAllNotes([]);
+      setLastConversationId(conversationId);
+    }
+  }, [conversationId, lastConversationId]);
+
+  // Add new notes when response changes (don't replace, just add)
   useEffect(() => {
     if (response) {
-      const parts = extractKeyParts(response);
-      setKeyPoints(parts);
+      const newParts = extractKeyParts(response);
+      if (newParts.length > 0) {
+        setAllNotes(prevNotes => [
+          ...prevNotes,
+          ...newParts.map(note => ({
+            id: `note-${Date.now()}-${Math.random()}`,
+            text: note,
+            timestamp: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})
+          }))
+        ]);
+      }
     }
   }, [response]);
 
-  if (!isVisible || keyPoints.length === 0) return null;
+  if (!isVisible) return null;
 
   return (
-    <div className="w-80 bg-white rounded-xl shadow-lg border border-gray-200 p-4">
+    <div className="w-full h-full bg-white rounded-lg shadow-md border border-gray-200 p-4 flex flex-col" style={{ minHeight: '400px' }}>
       {/* Header */}
-      <div className="flex items-center gap-2 mb-4">
-        <BookOpen className="w-5 h-5 text-blue-600" />
-        <h3 className="font-semibold text-gray-800">Key Notes</h3>
+      <div className="flex items-center gap-2 mb-4 pb-2 border-b border-gray-100">
+        <Clipboard className="w-5 h-5 text-gray-600" />
+        <h3 className="font-medium text-gray-800">Notes</h3>
+        <span className="text-xs text-gray-500 ml-auto">{allNotes.length} items</span>
       </div>
 
-      {/* Key Points */}
-      <div className="space-y-3">
-        {keyPoints.map((point) => {
-          const IconComponent = point.icon;
-          return (
+      {/* Notes List */}
+      <div className="flex-1 overflow-y-auto">
+        <div className="space-y-2">
+        {allNotes.length === 0 ? (
+          <div className="text-center py-8 text-gray-500">
+            <Clipboard className="w-8 h-8 mx-auto mb-2 opacity-30" />
+            <p className="text-sm">Medical notes will appear here</p>
+          </div>
+        ) : (
+          allNotes.map((note) => (
             <div
-              key={point.id}
-              className={`p-3 rounded-lg border ${point.color}`}
+              key={note.id}
+              className="p-3 bg-gray-50 rounded border-l-3 border-l-blue-400 hover:bg-gray-100 transition-colors"
             >
-              <div className="flex items-start gap-2">
-                <IconComponent className="w-4 h-4 mt-0.5 flex-shrink-0" />
-                <p className="text-sm leading-relaxed">{point.text}</p>
-              </div>
+              <p className="text-sm text-gray-800 leading-relaxed">{note.text}</p>
+              <span className="text-xs text-gray-500 mt-1 block">{note.timestamp}</span>
             </div>
-          );
-        })}
+          ))
+        )}
       </div>
+    </div>
     </div>
   );
 };

@@ -1,4 +1,4 @@
-// MainScreen.jsx
+// MainScreen.jsx - Clean version without debugging
 import React, { useState, useEffect } from "react";
 import { askGemini } from "../../Gemini/GeminiAPIService";
 import ttsService from "../../threejs/TTSService";
@@ -31,6 +31,7 @@ function MainScreen() {
   const [currentConversationId, setCurrentConversationId] = useState(null);
   const [conversationMessages, setConversationMessages] = useState([]);
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [databaseReady, setDatabaseReady] = useState(false);
 
   const {
@@ -108,6 +109,7 @@ function MainScreen() {
     if (!databaseReady) return;
     try {
       const conversations = await ConversationService.getConversations();
+      
       if (conversations.length > 0) {
         setCurrentConversationId(conversations[0].id);
         await loadConversationMessages(conversations[0].id);
@@ -133,22 +135,30 @@ function MainScreen() {
 
   const loadConversationMessages = async (conversationId) => {
     if (!conversationId || !databaseReady) return;
+    
     try {
       const conversation = await ConversationService.getConversation(conversationId);
-      setConversationMessages(conversation.messages);
-      const lastAssistantMessage = conversation.messages.filter(msg => msg.role === 'assistant').pop();
+      const messages = Array.isArray(conversation.messages) ? conversation.messages : [];
+      
+      setConversationMessages(messages);
+      
+      const lastAssistantMessage = messages.filter(msg => msg.role === 'assistant').pop();
       setResponse(lastAssistantMessage?.content || "");
+      
     } catch (error) {
       console.error('Error loading conversation:', error);
+      setConversationMessages([]);
     }
   };
 
   const saveMessageToConversation = async (content, role) => {
     if (!currentConversationId || !databaseReady) return;
     try {
-      await ConversationService.addMessage(currentConversationId, content, role);
+      const savedMessage = await ConversationService.addMessage(currentConversationId, content, role);
+      return savedMessage;
     } catch (error) {
       console.error('Error saving message:', error);
+      throw error;
     }
   };
 
@@ -172,23 +182,39 @@ function MainScreen() {
     if (input.trim()) {
       const userMessage = input.trim();
       setIsThinking(true);
+      
       try {
+        // Save user message
         await saveMessageToConversation(userMessage, 'user');
+        
+        // Update conversation title if this is the first message
         if (conversationMessages.length === 0) {
           await updateConversationTitle(userMessage);
         }
+
+        // Get AI response
         const res = await askGemini(userMessage);
         setResponse(res);
         setInput("");
+        
+        // Save assistant response
         await saveMessageToConversation(res, 'assistant');
+        
+        // Reload conversation messages to show the new ones
         await loadConversationMessages(currentConversationId);
+        
         setIsThinking(false);
         await speakResponse(res);
       } catch (error) {
         console.error('Error getting AI response:', error);
         const errorMsg = "Sorry, there was an error getting a response. Please try again.";
         setResponse(errorMsg);
-        await saveMessageToConversation(errorMsg, 'assistant');
+        try {
+          await saveMessageToConversation(errorMsg, 'assistant');
+          await loadConversationMessages(currentConversationId);
+        } catch (saveError) {
+          console.error('Error saving error message:', saveError);
+        }
         setIsThinking(false);
         await speakResponse(errorMsg);
       }
@@ -244,10 +270,7 @@ function MainScreen() {
     setTtsMode,
     testVoice,
     isSpeaking,
-    isThinking,
-    lastUsedProvider,
-    showDebug,
-    setShowDebug
+    isThinking
   };
 
   if (authLoading) {
@@ -273,10 +296,19 @@ function MainScreen() {
         onNewConversation={handleNewConversation}
         isOpen={sidebarOpen}
         onToggle={toggleSidebar}
+        isCollapsed={sidebarCollapsed}
+        onToggleCollapse={setSidebarCollapsed}
       />
-      <Header isSidebarOpen={sidebarOpen} isSidebarCollapsed={false} />
+      
+      <Header 
+        isSidebarOpen={sidebarOpen} 
+        isSidebarCollapsed={sidebarCollapsed}
+        voiceSettingsProps={voiceSettingsProps}
+      />
+      
       <div className="flex-1 flex flex-col relative pt-16 bg-white">
-        <div className="md:hidden flex items-center justify-between p-4 bg-white border-b border-gray-200=">
+        {/* Mobile Header */}
+        <div className="md:hidden flex items-center justify-between p-4 bg-white border-b border-gray-200">
           <button onClick={toggleSidebar} className="p-2 hover:bg-gray-100 rounded-lg">
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
@@ -286,58 +318,90 @@ function MainScreen() {
           <div className="w-10" />
         </div>
 
-        <div className="flex-1 w-full p-4 lg:p-6 overflow-y-auto flex justify-center">
-          <div className="w-full space-y-6">
-            <h1 className="text-3xl md:text-4xl font-bold text-center text-[#ED1C24]">
-              AI Medical Assistant
-            </h1>
-
-            <div className="flex justify-center">
-              <AvatarContainer 
-                isSpeaking={isSpeaking} 
-                currentAudio={ttsService.currentAudio}
-                showDebug={showDebug}
-              />
+        {/* Layout Container */}
+        <div className="flex-1 flex flex-col p-4 lg:p-6 overflow-y-auto">
+          <div className="max-w-7xl mx-auto flex flex-col space-y-4">
+            {/* Header with Title */}
+            <div className="flex-shrink-0">
+              <h1 className="text-3xl md:text-4xl font-bold text-center text-[#ED1C24]">
+                AI Medical Assistant
+              </h1>
             </div>
 
-            <StatusIndicators {...statusProps} />
-
-            {conversationMessages.length > 0 && (
-              <div className="space-y-4">
-                <div className="max-h-60 overflow-y-auto space-y-3 p-4 bg-gray-50 rounded-xl border border-gray-200">
-                  {conversationMessages.map((message, index) => (
-                    <div
-                      key={message.id || index}
-                      className={`p-4 rounded-xl ${
-                        message.role === 'user'
-                          ? 'bg-[#ED1C24] text-white ml-8'
-                          : 'bg-white text-gray-800 mr-8 border border-gray-200'
-                      }`}
-                    >
-                      <div className="flex items-start gap-2 mb-2 text-xs">
-                        <span className="font-semibold uppercase tracking-wide opacity-75">
-                          {message.role === 'user' ? 'You' : 'Assistant'}
-                        </span>
-                        <span className="opacity-50">
-                          {new Date(message.created_at).toLocaleTimeString()}
-                        </span>
-                      </div>
-                      <p className="text-sm leading-relaxed">{message.content}</p>
-                    </div>
-                  ))}
+            {/* Main Content Layout */}
+            <div className="flex gap-6">
+              {/* Left side - Avatar, Messages, and Input (60% width) */}
+              <div className="w-3/5 flex flex-col space-y-4">
+                {/* Avatar Section */}
+                <div className="flex justify-center">
+                  <AvatarContainer 
+                    isSpeaking={isSpeaking} 
+                    currentAudio={ttsService.currentAudio}
+                    showDebug={showDebug}
+                  />
                 </div>
+
+                <StatusIndicators {...statusProps} />
+
+                {/* Conversation History */}
+                <div className="max-h-80 overflow-y-auto">
+                  {!databaseReady ? (
+                    <div className="flex items-center justify-center p-8 text-gray-500">
+                      <div className="text-center">
+                        <p>Loading database...</p>
+                        <p className="text-xs mt-1">Please wait</p>
+                      </div>
+                    </div>
+                  ) : conversationMessages.length > 0 ? (
+                    <div className="space-y-3 p-4 bg-gray-50 rounded-xl border border-gray-200">
+                      {conversationMessages.map((message, index) => (
+                        <div
+                          key={message.id || index}
+                          className={`p-4 rounded-xl ${
+                            message.role === 'user'
+                              ? 'bg-[#ED1C24] text-white ml-8'
+                              : 'bg-white text-gray-800 mr-8 border border-gray-200'
+                          }`}
+                        >
+                          <div className="flex items-start gap-2 mb-2 text-xs">
+                            <span className="font-semibold uppercase tracking-wide opacity-75">
+                              {message.role === 'user' ? 'You' : 'Assistant'}
+                            </span>
+                            <span className="opacity-50">
+                              {new Date(message.created_at).toLocaleTimeString()}
+                            </span>
+                          </div>
+                          <p className="text-sm leading-relaxed">{message.content}</p>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="flex items-center justify-center p-8 text-gray-500">
+                      <div className="text-center">
+                        <p>Start a conversation to see messages here</p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Chat Input */}
+                <ChatInput 
+                  input={input}
+                  setInput={setInput}
+                  isThinking={isThinking}
+                  voiceControlsProps={voiceControlsProps}
+                  onSubmit={handleSubmit}
+                />
               </div>
-            )}
-
-            <ChatInput 
-              input={input}
-              setInput={setInput}
-              isThinking={isThinking}
-              voiceControlsProps={voiceControlsProps}
-              onSubmit={handleSubmit}
-            />
-
-            <KeyParts response={response} />
+              
+              {/* Right side - KeyParts (40% width) */}
+              <div className="w-2/5">
+                <KeyParts 
+                  response={response || "Welcome to MedPal! I'm here to help with your medical questions. Feel free to ask about symptoms, treatments, or general health advice."} 
+                  conversationId={currentConversationId}
+                />
+              </div>
+            </div>
           </div>
         </div>
       </div>

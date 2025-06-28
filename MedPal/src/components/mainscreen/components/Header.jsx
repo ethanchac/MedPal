@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from "react";
 import { supabase } from "../../../data/supabase-client";
+import VoiceSettings from "./VoiceSettings";
 
-function Header({ isSidebarCollapsed }) {
+function Header({ isSidebarOpen, isSidebarCollapsed, voiceSettingsProps }) {
   const [user, setUser] = useState(null);
 
   useEffect(() => {
@@ -30,13 +31,24 @@ function Header({ isSidebarCollapsed }) {
     setUser(null);
   };
 
-  // Dynamically adjust padding to match sidebar width
-  const paddingLeft = isSidebarCollapsed ? "pl-12" : "pl-80";
+  // Dynamically adjust padding based on sidebar state
+  const getPaddingLeft = () => {
+    if (!isSidebarOpen) {
+      return "pl-6"; // No sidebar
+    }
+    return isSidebarCollapsed ? "pl-16" : "pl-80"; // Collapsed or full sidebar
+  };
 
   return (
     <header
-      className={`fixed top-0 left-0 right-0 h-16 bg-white shadow z-40 flex items-center justify-end px-6 ${paddingLeft} transition-all duration-300`}
+      className={`fixed top-0 left-0 right-0 h-16 bg-white shadow z-40 flex items-center justify-between px-6 ${getPaddingLeft()} transition-all duration-300`}
     >
+      {/* Left side - Voice Settings */}
+      <div className="flex items-center">
+        {voiceSettingsProps && <VoiceSettings {...voiceSettingsProps} />}
+      </div>
+
+      {/* Right side - User info */}
       {user && (
         <div className="flex items-center gap-4">
           <button

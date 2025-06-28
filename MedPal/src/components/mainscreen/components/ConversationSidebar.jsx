@@ -8,7 +8,9 @@ const ConversationSidebar = ({
   onConversationSelect, 
   onNewConversation,
   isOpen,
-  onToggle 
+  onToggle,
+  isCollapsed,
+  onToggleCollapse
 }) => {
   const [conversations, setConversations] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -16,7 +18,6 @@ const ConversationSidebar = ({
   const [searchQuery, setSearchQuery] = useState('');
   const [editingId, setEditingId] = useState(null);
   const [editTitle, setEditTitle] = useState('');
-  const [isCollapsed, setIsCollapsed] = useState(false);
 
   useEffect(() => {
     loadConversations();
@@ -87,7 +88,11 @@ const ConversationSidebar = ({
     }
   };
 
-  const toggleCollapse = () => setIsCollapsed(!isCollapsed);
+  const handleToggleCollapse = () => {
+    if (onToggleCollapse) {
+      onToggleCollapse(!isCollapsed);
+    }
+  };
 
   const filteredConversations = conversations.filter(conv =>
     conv.title.toLowerCase().includes(searchQuery.toLowerCase())
@@ -119,7 +124,7 @@ const ConversationSidebar = ({
               />
             )}
             <button
-              onClick={isCollapsed ? toggleCollapse : (window.innerWidth >= 768 ? toggleCollapse : onToggle)}
+              onClick={isCollapsed ? handleToggleCollapse : (window.innerWidth >= 768 ? handleToggleCollapse : onToggle)}
               className="p-2 hover:bg-red-800 rounded-lg transition-colors"
               title={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
             >
