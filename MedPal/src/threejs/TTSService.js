@@ -241,7 +241,7 @@ class TTSService {
     try {
       if (this.mode === TTS_MODES.BROWSER_ONLY) {
         // Use browser TTS only
-        this.currentAudio = await this.speakWithBrowser(cleanText, onStart, onEnd);
+        await this.speakWithBrowser(cleanText, onStart, onEnd);
         return { provider: 'browser', success: true };
       }
 
@@ -260,7 +260,7 @@ class TTSService {
           console.warn('ElevenLabs failed, falling back to browser TTS:', elevenLabsError.message);
           
           // Fallback to browser TTS
-          this.currentAudio = await this.speakWithBrowser(cleanText, onStart, onEnd);
+          await this.speakWithBrowser(cleanText, onStart, onEnd);
           return { provider: 'browser', success: true, fallback: true };
         }
       }
@@ -353,7 +353,7 @@ class TTSService {
     }
   }
 }
-//Test
+
 // Create and export singleton instance
 const ttsService = new TTSService();
 export default ttsService;
