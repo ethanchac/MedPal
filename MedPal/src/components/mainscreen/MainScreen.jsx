@@ -334,14 +334,7 @@ function MainScreen() {
           <div className="w-10" />
         </div>
 
-        {/* Avatar Section */}
-        <div className="relative bg-white">
-          <AvatarContainer 
-            isSpeaking={isSpeaking} 
-            currentAudio={ttsService.currentAudio}
-            showDebug={showDebug}
-          />
-        </div>
+
 
         {/* Chat Content */}
         <div className="flex-1 w-full p-4 lg:p-6 bg-white overflow-y-auto">
@@ -350,7 +343,14 @@ function MainScreen() {
             <h1 className="hidden md:block text-3xl font-bold mb-6 text-gray-800 text-center">
               AI Medical Assistant
             </h1>
-            
+                    {/* Avatar Section */}
+            <div className="relative bg-white">
+            <AvatarContainer 
+            isSpeaking={isSpeaking} 
+            currentAudio={ttsService.currentAudio}
+            showDebug={showDebug}
+          />
+        </div>
             {/* Status Indicators */}
             <StatusIndicators {...statusProps} />
 
