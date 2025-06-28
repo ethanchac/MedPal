@@ -1,4 +1,4 @@
-// AvatarViewer.jsx - Main Avatar Canvas Component with Error Handling
+// AvatarViewer.jsx - Fixed camera settings for full head and shoulders view
 import React, { Suspense, useState, useEffect } from "react";
 import { Canvas } from "@react-three/fiber";
 import { OrbitControls } from "@react-three/drei";
@@ -126,9 +126,15 @@ export default function AvatarViewer({
     <div className="h-full w-full bg-white relative">
       <AvatarErrorBoundary>
         <Canvas 
-          camera={{ position: [0, 1.4, 1.2], fov: 25 }}
-          onCreated={({ gl }) => {
-            // Canvas created successfully
+          camera={{ 
+            position: [0, 0.5, 2.5],  // Moved camera up and back for better head/shoulders view
+            fov: 35,                  // Slightly wider field of view
+            near: 0.1,
+            far: 1000
+          }}
+          onCreated={({ gl, camera }) => {
+            // Look at the head area
+            camera.lookAt(0, 0.5, 0);
             console.log('Canvas initialized successfully');
           }}
           onError={(error) => {
@@ -136,10 +142,11 @@ export default function AvatarViewer({
             setCanvasError(true);
           }}
         >
-          {/* Lighting */}
-          <ambientLight intensity={1} />
-          <directionalLight position={[10, 10, 5]} intensity={0.5} />
-          <pointLight position={[-10, -10, -5]} intensity={0.3} />
+          {/* Better lighting for head and shoulders */}
+          <ambientLight intensity={0.8} />
+          <directionalLight position={[5, 5, 5]} intensity={0.6} />
+          <directionalLight position={[-5, 5, 5]} intensity={0.4} />
+          <pointLight position={[0, 2, 2]} intensity={0.3} />
           
           {/* Avatar Model */}
           <Suspense fallback={<LoadingFallback />}>
@@ -157,9 +164,10 @@ export default function AvatarViewer({
             enableZoom={enableControls} 
             enableRotate={enableControls} 
             enablePan={enableControls}
-            maxDistance={3}
-            minDistance={1}
+            maxDistance={5}     // Allow zooming out more
+            minDistance={1.5}   // Prevent getting too close
             maxPolarAngle={Math.PI / 2}
+            target={[0, 0.5, 0]} // Focus on head area
           />
         </Canvas>
       </AvatarErrorBoundary>
@@ -172,10 +180,10 @@ export default function AvatarViewer({
           <div>Audio: {currentAudio ? '🔊 Active' : '🔇 None'}</div>
           <div>Expressiveness: {expressiveness}x</div>
           <div className="mt-2 text-yellow-300">
-            Check browser console for detailed animation info
+            Camera positioned for head and shoulders view
           </div>
           <div className="mt-1 text-blue-300">
-            Color bars show different mouth shapes and expressions
+            Model scale: 1.0, Position: [0, -0.5, 0]
           </div>
         </div>
       )}
