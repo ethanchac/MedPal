@@ -1,3 +1,6 @@
+// TTSService.js - Text-to-Speech service with ElevenLabs and browser backup
+
+// ElevenLabs configuration
 const ELEVEN_API_KEY = "sk_dd0a69b3fe99e9e4f26ff99a81b7e537a7ee24ac99a30471";
 const RACHEL_VOICE_ID = "21m00Tcm4TlvDq8ikWAM";
 
@@ -176,25 +179,50 @@ class TTSService {
           }
         }
 
+        let hasStarted = false;
+        let hasEnded = false;
+
         utterance.onstart = () => {
+          hasStarted = true;
           if (onStart) onStart();
         };
 
         utterance.onend = () => {
-          if (onEnd) onEnd();
-          resolve();
+          if (!hasEnded) {
+            hasEnded = true;
+            if (onEnd) onEnd();
+            resolve();
+          }
         };
 
         utterance.onerror = (event) => {
-          console.error('Browser TTS error:', event.error);
-          if (onEnd) onEnd();
-          reject(new Error(`Browser TTS error: ${event.error}`));
+          if (!hasEnded) {
+            hasEnded = true;
+            // Don't log interrupted errors as they're expected when stopping
+            if (event.error !== 'interrupted') {
+              console.error('Browser TTS error:', event.error);
+            }
+            if (onEnd) onEnd();
+            // Don't reject on interrupted errors
+            if (event.error === 'interrupted') {
+              resolve();
+            } else {
+              reject(new Error(`Browser TTS error: ${event.error}`));
+            }
+          }
         };
 
         try {
           window.speechSynthesis.speak(utterance);
+          this.currentAudio = { 
+            pause: () => window.speechSynthesis.cancel(),
+            currentTime: 0 
+          };
         } catch (error) {
-          reject(error);
+          if (!hasEnded) {
+            hasEnded = true;
+            reject(error);
+          }
         }
       }, 100);
     });

@@ -1,57 +1,7 @@
 import React, { useState, useRef, useEffect } from "react";
 import { askGemini } from "../Gemini/GeminiAPIService";
 import AvatarViewer from "./AvatarViewer";
-
-// ElevenLabs configuration
-const ELEVEN_API_KEY = "sk_dd0a69b3fe99e9e4f26ff99a81b7e537a7ee24ac99a30471";
-const RACHEL_VOICE_ID = "21m00Tcm4TlvDq8ikWAM"; // Rachel's ElevenLabs voice ID
-
-// ElevenLabs TTS function
-async function speakWithRachel(text, onStart, onEnd) {
-  try {
-    const response = await fetch(
-      `https://api.elevenlabs.io/v1/text-to-speech/${RACHEL_VOICE_ID}`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "xi-api-key": ELEVEN_API_KEY,
-        },
-        body: JSON.stringify({
-          text,
-          model_id: "eleven_multilingual_v2",
-          voice_settings: {
-            stability: 0.5,
-            similarity_boost: 0.8,
-            style: 0.0,
-            use_speaker_boost: true
-          },
-        }),
-      }
-    );
-
-    if (!response.ok) throw new Error("Failed to synthesize speech");
-
-    const audioBlob = await response.blob();
-    const audioUrl = URL.createObjectURL(audioBlob);
-    const audio = new Audio(audioUrl);
-
-    if (onStart) audio.onplay = onStart;
-    if (onEnd) {
-      audio.onended = () => {
-        URL.revokeObjectURL(audioUrl); // Clean up memory
-        onEnd();
-      };
-    }
-
-    audio.play();
-    return audio; // Return audio object for potential control
-  } catch (error) {
-    console.error("ElevenLabs TTS Error:", error);
-    if (onEnd) onEnd();
-    throw error;
-  }
-}
+import ttsService, { TTS_MODES } from "../Gemini/TTSService"; // Import the TTS service
 
 function MainScreen() {
   const [input, setInput] = useState("");
@@ -63,12 +13,13 @@ function MainScreen() {
   const [isThinking, setIsThinking] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [ttsError, setTtsError] = useState(null);
+  const [ttsMode, setTtsMode] = useState(TTS_MODES.ELEVENLABS_WITH_FALLBACK);
+  const [lastUsedProvider, setLastUsedProvider] = useState(null);
   
   const recognitionRef = useRef(null);
   const autoSubmitTimerRef = useRef(null);
   const countdownTimerRef = useRef(null);
   const isManuallyStoppedRef = useRef(false);
-  const currentAudioRef = useRef(null);
 
   useEffect(() => {
     // Check if speech recognition is supported
@@ -130,15 +81,23 @@ function MainScreen() {
       };
     }
 
+    // Set initial TTS mode
+    ttsService.setMode(ttsMode);
+
     // Cleanup
     return () => {
       if (recognitionRef.current) {
         recognitionRef.current.stop();
       }
-      stopSpeaking();
+      ttsService.stop();
       clearAutoSubmitTimers();
     };
   }, []);
+
+  // Update TTS mode when it changes
+  useEffect(() => {
+    ttsService.setMode(ttsMode);
+  }, [ttsMode]);
 
   // Update listening dependency
   useEffect(() => {
@@ -202,51 +161,49 @@ function MainScreen() {
   const speakResponse = async (text) => {
     if (!text) return;
 
-    // Stop any current speech
-    stopSpeaking();
     setTtsError(null);
+    setLastUsedProvider(null);
 
     try {
-      const cleanText = text
-        // Remove markdown formatting
-        .replace(/\*\*(.*?)\*\*/g, '$1')
-        .replace(/\*(.*?)\*/g, '$1')
-        .replace(/`(.*?)`/g, '$1')
-        // Clean up for better speech
-        .replace(/(\d+)%/g, '$1 percent')
-        .replace(/(\d+)\s*mg/g, '$1 milligrams')
-        .replace(/(\d+)\s*ml/g, '$1 milliliters')
-        .replace(/\bDr\./g, 'Doctor')
-        .replace(/\bMr\./g, 'Mister')
-        .replace(/\bMrs\./g, 'Missus')
-        .replace(/\bMs\./g, 'Miss');
-
-      const audio = await speakWithRachel(
-        cleanText,
+      const result = await ttsService.speak(
+        text,
+        // onStart
         () => {
           setIsSpeaking(true);
         },
+        // onEnd
         () => {
           setIsSpeaking(false);
-          currentAudioRef.current = null;
+        },
+        // onError
+        (error) => {
+          console.error('TTS Error:', error.message);
+          setTtsError(`Voice synthesis failed: ${error.message}`);
+          setIsSpeaking(false);
         }
       );
 
-      currentAudioRef.current = audio;
+      if (result && result.success) {
+        setLastUsedProvider(result.provider);
+        if (result.fallback) {
+          setTtsError(`ElevenLabs failed, using browser voice instead`);
+          // Clear the error after 3 seconds for fallback messages
+          setTimeout(() => setTtsError(null), 3000);
+        }
+      } else if (result && !result.success) {
+        setTtsError(result.error || 'Voice synthesis failed');
+        setIsSpeaking(false);
+      }
 
     } catch (error) {
-      console.error('Error with ElevenLabs TTS:', error);
-      setTtsError('Voice synthesis failed. Please try again.');
+      console.error('Error with TTS:', error);
+      setTtsError('All voice synthesis methods failed. Please try again.');
       setIsSpeaking(false);
     }
   };
 
   const stopSpeaking = () => {
-    if (currentAudioRef.current) {
-      currentAudioRef.current.pause();
-      currentAudioRef.current.currentTime = 0;
-      currentAudioRef.current = null;
-    }
+    ttsService.stop();
     setIsSpeaking(false);
   };
 
@@ -285,19 +242,20 @@ function MainScreen() {
     stopListeningAndClearTimers();
     if (input.trim()) {
       setIsThinking(true);
+      setTtsError(null); // Clear any previous errors
       try {
         const res = await askGemini(input);
         setResponse(res);
         setInput(""); // Clear input after successful submission
-        // Automatically speak the response with ElevenLabs
+        setIsThinking(false); // Stop thinking before speaking
+        // Automatically speak the response
         await speakResponse(res);
       } catch (error) {
         console.error('Error getting AI response:', error);
         const errorMsg = "Sorry, there was an error getting a response. Please try again.";
         setResponse(errorMsg);
+        setIsThinking(false); // Stop thinking before speaking
         await speakResponse(errorMsg);
-      } finally {
-        setIsThinking(false);
       }
     }
   };
@@ -306,21 +264,34 @@ function MainScreen() {
     clearAutoSubmitTimers();
     if (input.trim()) {
       setIsThinking(true);
+      setTtsError(null); // Clear any previous errors
       try {
         const res = await askGemini(input);
         setResponse(res);
         setInput(""); // Clear input after successful submission
-        // Automatically speak the response with ElevenLabs
+        setIsThinking(false); // Stop thinking before speaking
+        // Automatically speak the response
         await speakResponse(res);
       } catch (error) {
         console.error('Error getting AI response:', error);
         const errorMsg = "Sorry, there was an error getting a response. Please try again.";
         setResponse(errorMsg);
+        setIsThinking(false); // Stop thinking before speaking
         await speakResponse(errorMsg);
-      } finally {
-        setIsThinking(false);
       }
     }
+  };
+
+  const getVoiceStatusText = () => {
+    if (!isSpeaking) return '';
+    
+    if (lastUsedProvider === 'elevenlabs') {
+      return 'Rachel (ElevenLabs) is speaking...';
+    } else if (lastUsedProvider === 'browser') {
+      const browserInfo = ttsService.getBrowserVoicesInfo();
+      return `${browserInfo.bestFemale} is speaking...`;
+    }
+    return 'AI is speaking...';
   };
 
   return (
@@ -409,7 +380,7 @@ function MainScreen() {
             <div className="w-1 h-4 bg-green-500 rounded animate-pulse" style={{animationDelay: '0.3s'}}></div>
             <div className="w-1 h-3 bg-green-500 rounded animate-pulse" style={{animationDelay: '0.4s'}}></div>
           </div>
-          Rachel is speaking...
+          {getVoiceStatusText()}
           <button
             className="ml-2 text-xs bg-red-100 hover:bg-red-200 px-2 py-1 rounded"
             onClick={stopSpeaking}
@@ -420,8 +391,8 @@ function MainScreen() {
       )}
 
       {ttsError && (
-        <div className="mb-2 text-sm text-red-600 bg-red-50 p-2 rounded">
-          {ttsError}
+        <div className="mb-2 text-sm text-orange-600 bg-orange-50 p-2 rounded">
+          ⚠️ {ttsError}
         </div>
       )}
 
@@ -440,22 +411,76 @@ function MainScreen() {
         </div>
       )}
 
-      {/* ElevenLabs Voice Test */}
+      {/* Enhanced Voice Settings */}
       <div className="mt-4 p-4 bg-blue-50 rounded">
-        <h3 className="font-semibold mb-2">Voice Settings</h3>
-        <div className="flex items-center gap-2 mb-2">
-          <span className="text-sm font-medium">Voice: Rachel (ElevenLabs)</span>
+        <h3 className="font-semibold mb-3">Voice Settings</h3>
+        
+        {/* TTS Mode Selection */}
+        <div className="mb-3">
+          <label className="text-sm font-medium mb-2 block">Voice Mode:</label>
+          <div className="space-y-2">
+            <label className="flex items-center">
+              <input
+                type="radio"
+                name="ttsMode"
+                value={TTS_MODES.ELEVENLABS_WITH_FALLBACK}
+                checked={ttsMode === TTS_MODES.ELEVENLABS_WITH_FALLBACK}
+                onChange={(e) => setTtsMode(e.target.value)}
+                className="mr-2"
+              />
+              <span className="text-sm">ElevenLabs with Browser Backup (Recommended)</span>
+            </label>
+            <label className="flex items-center">
+              <input
+                type="radio"
+                name="ttsMode"
+                value={TTS_MODES.ELEVENLABS_ONLY}
+                checked={ttsMode === TTS_MODES.ELEVENLABS_ONLY}
+                onChange={(e) => setTtsMode(e.target.value)}
+                className="mr-2"
+              />
+              <span className="text-sm">ElevenLabs Only (Premium Quality)</span>
+            </label>
+            <label className="flex items-center">
+              <input
+                type="radio"
+                name="ttsMode"
+                value={TTS_MODES.BROWSER_ONLY}
+                checked={ttsMode === TTS_MODES.BROWSER_ONLY}
+                onChange={(e) => setTtsMode(e.target.value)}
+                className="mr-2"
+              />
+              <span className="text-sm">Browser Voice Only (Token Free)</span>
+            </label>
+          </div>
+        </div>
+
+        {/* Test Buttons */}
+        <div className="flex gap-2 mb-3">
           <button 
             onClick={testVoice}
             disabled={isSpeaking || isThinking}
             className="text-sm bg-blue-500 text-white px-3 py-1 rounded hover:bg-blue-600 disabled:bg-gray-400"
           >
-            Test Voice
+            Test Current Mode
+          </button>
+          <button 
+            onClick={() => ttsService.testVoice(TTS_MODES.BROWSER_ONLY)}
+            disabled={isSpeaking || isThinking}
+            className="text-sm bg-green-500 text-white px-3 py-1 rounded hover:bg-green-600 disabled:bg-gray-400"
+          >
+            Test Browser Voice
           </button>
         </div>
-        <p className="text-xs text-gray-600">
-          Using ElevenLabs AI voice synthesis for natural speech
-        </p>
+
+        {/* Current Status */}
+        <div className="text-xs text-gray-600">
+          <div>Current Mode: {ttsMode.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}</div>
+          {lastUsedProvider && (
+            <div>Last Used: {lastUsedProvider === 'elevenlabs' ? 'ElevenLabs (Rachel)' : `Browser (${ttsService.getBrowserVoicesInfo().bestFemale})`}</div>
+          )}
+          <div>Browser Voice Available: {ttsService.getBrowserVoicesInfo().bestFemale}</div>
+        </div>
       </div>
     </div>
   );
