@@ -1,7 +1,7 @@
 // TTSService.js - Text-to-Speech service with ElevenLabs and browser backup
 
 // ElevenLabs configuration
-const ELEVEN_API_KEY = "sk_dd0a69b3fe99e9e4f26ff99a81b7e537a7ee24ac99a30471";
+const ELEVEN_API_KEY = "sk_3871da300d6800b32af45290ac1cd889a75b425d43bfaa50";
 const RACHEL_VOICE_ID = "21m00Tcm4TlvDq8ikWAM";
 
 // Voice preference modes
