@@ -49,5 +49,15 @@ MedPal is an AI-driven virtual healthcare assistant that acts like a personal do
 
 ---
 
-## 📦 Project Structure (Key Files)
+## How to set up
+1. Download repo
+2. Download these modules
+- npm install
+- npm install tailwindcss @tailwindcss/vite
+- npm install @supabase/supabase-js
+- npm install three @react-three/fiber @react-three/drei
+- npm install react-router-dom
+- npm install lucide-react
+3. npm run dev to run the application
+
 
