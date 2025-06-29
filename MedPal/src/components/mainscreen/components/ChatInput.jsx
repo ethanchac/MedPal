@@ -57,7 +57,7 @@ const ChatInput = ({
       </div>
 
       <button
-        className="w-full bg-blue-600 text-white px-6 py-4 rounded-xl hover:bg-blue-700 disabled:bg-gray-400 mb-6 transition-colors font-medium text-xl shadow-lg"
+        className="w-full bg-[#B0101C] text-white px-6 py-4 rounded-xl hover:bg-red-800 disabled:bg-gray-400 mb-6 transition-colors font-medium text-xl shadow-lg"
         onClick={onSubmit}
         disabled={!input.trim() || isThinking}
       >

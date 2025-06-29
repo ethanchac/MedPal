@@ -1,4 +1,4 @@
-// MainScreen.jsx - Updated for conversational flow
+// MainScreen.jsx - Fixed layout issues
 import React, { useState, useEffect } from "react";
 import { askGemini } from "../../Gemini/GeminiAPIService";
 import ttsService from "../../threejs/TTSService";
@@ -29,7 +29,7 @@ function MainScreen() {
   const [showDebug, setShowDebug] = useState(false);
   const [currentConversationId, setCurrentConversationId] = useState(null);
   const [conversationMessages, setConversationMessages] = useState([]);
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [sidebarOpen, setSidebarOpen] = useState(false); // Changed default to false for mobile-first
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [databaseReady, setDatabaseReady] = useState(false);
   
@@ -107,7 +107,7 @@ function MainScreen() {
     resumeListening
   } = useSpeechRecognition(handleTranscript, handleSpeechStart, handleSpeechEnd);
 
-  // Auth and database setup (unchanged)
+  // Auth and database setup
   useEffect(() => {
     const getSession = async () => {
       try {
@@ -132,6 +132,21 @@ function MainScreen() {
     return () => subscription.unsubscribe();
   }, []);
 
+  // Set sidebar open by default on desktop
+  useEffect(() => {
+    const handleResize = () => {
+      if (window.innerWidth >= 768) {
+        setSidebarOpen(true);
+      }
+    };
+
+    // Set initial state
+    handleResize();
+    
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
   useEffect(() => {
     const checkDatabase = async () => {
       if (!user) return;
@@ -152,7 +167,7 @@ function MainScreen() {
     checkDatabase();
   }, [user]);
 
-  // Database functions (unchanged)
+  // Database functions
   const initializeConversation = async () => {
     if (!databaseReady) return;
     try {
@@ -303,11 +318,14 @@ function MainScreen() {
     }
   };
 
-  // Conversation management (unchanged)
+  // Conversation management
   const handleConversationSelect = async (conversationId) => {
     setCurrentConversationId(conversationId);
     await loadConversationMessages(conversationId);
-    setSidebarOpen(true);
+    // Close sidebar on mobile after selection
+    if (window.innerWidth < 768) {
+      setSidebarOpen(false);
+    }
   };
 
   const handleNewConversation = async (conversationId) => {
@@ -315,7 +333,10 @@ function MainScreen() {
     setConversationMessages([]);
     setResponse("");
     setInput("");
-    setSidebarOpen(true);
+    // Close sidebar on mobile after creating new conversation
+    if (window.innerWidth < 768) {
+      setSidebarOpen(false);
+    }
   };
 
   const toggleSidebar = () => {
@@ -339,7 +360,7 @@ function MainScreen() {
 
   const statusProps = {
     isListening,
-    countdown: 0, // Remove countdown in conversational mode
+    countdown: 0,
     isThinking,
     isSpeaking: isTTSSpeaking,
     isUserSpeaking,
@@ -375,7 +396,7 @@ function MainScreen() {
   }
 
   return (
-    <div className="relative h-screen w-full bg-white flex">
+    <div className="relative h-screen w-full bg-white flex overflow-hidden">
       <ConversationSidebar
         currentConversationId={currentConversationId}
         onConversationSelect={handleConversationSelect}
@@ -392,7 +413,12 @@ function MainScreen() {
         voiceSettingsProps={voiceSettingsProps}
       />
     
-      <div className="flex-1 flex flex-col relative pt-16 bg-white">
+      {/* Main content area with proper responsive layout */}
+      <div className={`
+        flex-1 flex flex-col relative pt-16 bg-white min-w-0
+        transition-all duration-300 ease-in-out
+        ${sidebarOpen && !sidebarCollapsed ? 'md:ml-0' : ''}
+      `}>
         {/* Mobile Header */}
         <div className="md:hidden flex items-center justify-between p-4 bg-white border-b border-gray-200">
           <button onClick={toggleSidebar} className="p-2 hover:bg-gray-100 rounded-lg">
@@ -404,9 +430,9 @@ function MainScreen() {
           <div className="w-10" />
         </div>
 
-        {/* Layout Container */}
-        <div className="flex-1 flex flex-col p-4 lg:p-6 overflow-y-auto">
-          <div className="max-w-7xl mx-auto flex flex-col space-y-4">
+        {/* Layout Container with improved responsive design */}
+        <div className="flex-1 flex flex-col p-4 lg:p-6 overflow-y-auto min-h-0">
+          <div className="max-w-7xl mx-auto w-full flex flex-col space-y-4 min-h-0">
             {/* Header with Title */}
             <div className="flex-shrink-0">
               <h1 className="text-3xl md:text-4xl font-bold text-center text-black">
@@ -428,12 +454,12 @@ function MainScreen() {
               </div>
             </div>
 
-            {/* Main Content Layout */}
-            <div className="flex gap-6">
-              {/* Left side - Avatar, Messages, and Input (60% width) */}
-              <div className="w-3/5 flex flex-col space-y-4">
+            {/* Main Content Layout - Fixed responsive design */}
+            <div className="flex-1 flex flex-col lg:flex-row gap-6 min-h-0">
+              {/* Left side - Avatar, Messages, and Input */}
+              <div className="flex-1 lg:flex-[3] flex flex-col space-y-4 min-h-0">
                 {/* Avatar Section */}
-                <div className="flex justify-center">
+                <div className="flex justify-center flex-shrink-0">
                   <AvatarContainer
                     isSpeaking={isTTSSpeaking}
                     currentAudio={ttsService.currentAudio}
@@ -443,40 +469,42 @@ function MainScreen() {
 
                 <StatusIndicators {...statusProps} />
 
-                {/* Conversation History */}
-                <div className="max-h-80 overflow-y-auto">
+                {/* Conversation History - Fixed scrolling */}
+                <div className="flex-1 min-h-0 overflow-hidden">
                   {!databaseReady ? (
-                    <div className="flex items-center justify-center p-8 text-gray-500">
+                    <div className="flex items-center justify-center p-8 text-gray-500 h-full">
                       <div className="text-center">
                         <p>Loading database...</p>
                         <p className="text-xs mt-1">Please wait</p>
                       </div>
                     </div>
                   ) : conversationMessages.length > 0 ? (
-                    <div className="space-y-3 p-4 bg-gray-50 rounded-xl border border-gray-200">
-                      {conversationMessages.map((message, index) => (
-                        <div
-                          key={message.id || index}
-                          className={`p-4 rounded-xl ${
-                            message.role === 'user'
-                              ? 'bg-[#ED1C24] text-white ml-8'
-                              : 'bg-white text-gray-800 mr-8 border border-gray-200'
-                          }`}
-                        >
-                          <div className="flex items-start gap-2 mb-2 text-xs">
-                            <span className="font-semibold uppercase tracking-wide opacity-75">
-                              {message.role === 'user' ? 'You' : 'Assistant'}
-                            </span>
-                            <span className="opacity-50">
-                              {new Date(message.created_at).toLocaleTimeString()}
-                            </span>
+                    <div className="h-full overflow-y-auto">
+                      <div className="space-y-3 p-4 bg-gray-50 rounded-xl border border-gray-200">
+                        {conversationMessages.map((message, index) => (
+                          <div
+                            key={message.id || index}
+                            className={`p-4 rounded-xl ${
+                              message.role === 'user'
+                                ? 'bg-[#ED1C24] text-white ml-8'
+                                : 'bg-white text-gray-800 mr-8 border border-gray-200'
+                            }`}
+                          >
+                            <div className="flex items-start gap-2 mb-2 text-xs">
+                              <span className="font-semibold uppercase tracking-wide opacity-75">
+                                {message.role === 'user' ? 'You' : 'Assistant'}
+                              </span>
+                              <span className="opacity-50">
+                                {new Date(message.created_at).toLocaleTimeString()}
+                              </span>
+                            </div>
+                            <p className="text-sm leading-relaxed">{message.content}</p>
                           </div>
-                          <p className="text-sm leading-relaxed">{message.content}</p>
-                        </div>
-                      ))}
+                        ))}
+                      </div>
                     </div>
                   ) : (
-                    <div className="flex items-center justify-center p-8 text-gray-500">
+                    <div className="flex items-center justify-center p-8 text-gray-500 h-full">
                       <div className="text-center">
                         <p>Start a conversation to see messages here</p>
                         <p className="text-xs mt-2">
@@ -492,18 +520,20 @@ function MainScreen() {
 
                 {/* Chat Input - Only show if not in conversational mode */}
                 {!isConversationalMode && (
-                  <ChatInput
-                    input={input}
-                    setInput={setInput}
-                    isThinking={isThinking}
-                    voiceControlsProps={voiceControlsProps}
-                    onSubmit={() => handleSubmit()}
-                  />
+                  <div className="flex-shrink-0">
+                    <ChatInput
+                      input={input}
+                      setInput={setInput}
+                      isThinking={isThinking}
+                      voiceControlsProps={voiceControlsProps}
+                      onSubmit={() => handleSubmit()}
+                    />
+                  </div>
                 )}
               </div>
             
-              {/* Right side - KeyParts (40% width) */}
-              <div className="w-2/5">
+              {/* Right side - KeyParts */}
+              <div className="flex-1 lg:flex-[2] min-h-0">
                 <KeyParts
                   response={response || "Welcome to MedPal! I'm here to help with your medical questions. Feel free to ask about symptoms, treatments, or general health advice."}
                   conversationId={currentConversationId}
