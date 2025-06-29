@@ -1,4 +1,5 @@
 // components/ConversationSidebar.jsx
+import { Link } from "react-router-dom";
 import React, { useState, useEffect } from 'react';
 import { ConversationService } from '../../../data/conversationService';
 import MedPalLogo from '../../../assets/MedPal2.png';
@@ -139,11 +140,13 @@ const ConversationSidebar = ({
        <div className={`p-2 border-b border-red-800 ${isCollapsed ? 'px-2' : 'px-4'}`}>
          <div className="flex items-center justify-between">
            {!isCollapsed && (
-             <img
-               src={MedPalLogo}
-               alt="MedPal Logo"
-               className="h-10 w-auto"
-             />
+             <Link to="/">
+              <img
+                src={MedPalLogo}
+                alt="MedPal Logo"
+                className="h-10 w-auto cursor-pointer"
+              />
+            </Link>
            )}
            <button
              onClick={isCollapsed ? handleToggleCollapse : (window.innerWidth >= 768 ? handleToggleCollapse : onToggle)}
