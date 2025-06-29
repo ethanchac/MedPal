@@ -163,6 +163,7 @@ function MainScreen() {
   }, []);
 
 
+  // In your useEffect for checking database
   useEffect(() => {
     const checkDatabase = async () => {
       if (!user) return;
@@ -170,10 +171,7 @@ function MainScreen() {
         const { data, error } = await supabase.from('conversations').select('id').limit(1);
         if (!error) {
           setDatabaseReady(true);
-          initializeConversation();
-        } else {
-          console.warn('Database tables not ready:', error.message);
-          setDatabaseReady(false);
+          initializeConversation(); // This might run before databaseReady is actually set
         }
       } catch (error) {
         console.error('Error checking database:', error);
