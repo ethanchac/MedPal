@@ -4,9 +4,6 @@ import React, { useState, useEffect } from 'react';
 import { ConversationService } from '../../../data/conversationService';
 import MedPalLogo from '../../../assets/MedPal2.png';
 
-
-
-
 const ConversationSidebar = ({
  currentConversationId,
  onConversationSelect,
@@ -23,15 +20,9 @@ const ConversationSidebar = ({
  const [editingId, setEditingId] = useState(null);
  const [editTitle, setEditTitle] = useState('');
 
-
-
-
  useEffect(() => {
    loadConversations();
  }, []);
-
-
-
 
  const loadConversations = async () => {
    try {
@@ -46,9 +37,6 @@ const ConversationSidebar = ({
    }
  };
 
-
-
-
  const handleNewConversation = async () => {
    try {
      const newConv = await ConversationService.createConversation();
@@ -59,15 +47,9 @@ const ConversationSidebar = ({
    }
  };
 
-
-
-
  const handleDeleteConversation = async (conversationId, e) => {
    e.stopPropagation();
    if (!window.confirm('Delete this conversation?')) return;
-
-
-
 
    try {
      await ConversationService.deleteConversation(conversationId);
@@ -80,26 +62,17 @@ const ConversationSidebar = ({
    }
  };
 
-
-
-
  const handleEditTitle = (conversation, e) => {
    e.stopPropagation();
    setEditingId(conversation.id);
    setEditTitle(conversation.title);
  };
 
-
-
-
  const handleSaveTitle = async (conversationId) => {
    if (!editTitle.trim()) {
      setEditingId(null);
      return;
    }
-
-
-
 
    try {
      await ConversationService.updateConversationTitle(conversationId, editTitle.trim());
@@ -116,24 +89,35 @@ const ConversationSidebar = ({
    }
  };
 
-
-
-
  const handleToggleCollapse = () => {
    if (onToggleCollapse) {
      onToggleCollapse(!isCollapsed);
    }
  };
 
-
-
-
  const filteredConversations = conversations.filter(conv =>
    conv.title.toLowerCase().includes(searchQuery.toLowerCase())
  );
 
-
-
+ // Custom scrollbar styles
+ const scrollbarStyles = {
+   scrollbarWidth: 'thin',
+   scrollbarColor: 'rgba(255, 255, 255, 0.3) rgba(255, 255, 255, 0.1)',
+   WebkitScrollbar: {
+     width: '6px'
+   },
+   WebkitScrollbarTrack: {
+     background: 'rgba(255, 255, 255, 0.1)',
+     borderRadius: '3px'
+   },
+   WebkitScrollbarThumb: {
+     background: 'rgba(255, 255, 255, 0.3)',
+     borderRadius: '3px'
+   },
+   WebkitScrollbarThumbHover: {
+     background: 'rgba(255, 255, 255, 0.5)'
+   }
+ };
 
  return (
    <>
@@ -143,9 +127,6 @@ const ConversationSidebar = ({
          onClick={onToggle}
        />
      )}
-
-
-
 
      <div className={`
        fixed top-0 left-0 z-50 transition-all duration-300 ease-in-out
@@ -184,9 +165,6 @@ const ConversationSidebar = ({
            </button>
          </div>
 
-
-
-
          {!isCollapsed && (
            <>
              <button
@@ -198,9 +176,6 @@ const ConversationSidebar = ({
                </svg>
                New chat
              </button>
-
-
-
 
              <div className="mt-3">
                <div className="relative">
@@ -220,9 +195,6 @@ const ConversationSidebar = ({
          )}
        </div>
 
-
-
-
        {isCollapsed && (
          <div className="p-2">
            <button
@@ -237,11 +209,15 @@ const ConversationSidebar = ({
          </div>
        )}
 
-
-
-
        {!isCollapsed && (
-         <div className="flex-1 overflow-y-auto p-2">
+         <div 
+           className="flex-1 overflow-y-auto p-2"
+           style={{
+             scrollbarWidth: 'thin',
+             scrollbarColor: 'rgba(255, 255, 255, 0.3) rgba(255, 255, 255, 0.1)',
+             ...scrollbarStyles
+           }}
+         >
            {loading ? (
              <div className="p-4 text-center text-red-200">Loading...</div>
            ) : error ? (
@@ -316,18 +292,4 @@ const ConversationSidebar = ({
  );
 };
 
-
-
-
 export default ConversationSidebar;
-
-
-
-
-
-
-
-
-
-
-
