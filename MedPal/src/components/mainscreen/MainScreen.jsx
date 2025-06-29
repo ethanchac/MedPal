@@ -430,16 +430,16 @@ function MainScreen() {
         </div>
 
         {/* Layout Container with improved responsive design */}
-        <div className="flex-1 flex flex-col p-4 lg:p-6 overflow-y-auto min-h-0">
-          <div className="max-w-7xl mx-auto w-full flex flex-col space-y-4 min-h-0">
+        <div className="flex-1 flex flex-col p-2 lg:p-4 overflow-y-auto min-h-0">
+          <div className="max-w-7xl mx-auto w-full flex flex-col space-y-2 min-h-0">
             {/* Header with Title */}
             <div className="flex-shrink-0">
-              <h1 className="text-3xl md:text-4xl font-bold text-center text-black">
+              <h1 className="text-2xl md:text-3xl font-bold text-center text-black">
                 MedPal
               </h1>
              
               {/* Conversational Mode Toggle */}
-              <div className="flex justify-center mt-4">
+              <div className="flex justify-center mt-2">
                 <button
                   onClick={toggleConversationalMode}
                   className={`px-6 py-2 rounded-full font-medium transition-all duration-200 ${
@@ -454,9 +454,9 @@ function MainScreen() {
             </div>
 
             {/* Main Content Layout - Fixed responsive design */}
-            <div className="flex-1 flex flex-col lg:flex-row gap-6 min-h-0">
+            <div className="flex-1 flex flex-col lg:flex-row gap-4 min-h-0">
               {/* Left side - Avatar, Messages, and Input */}
-              <div className="flex-1 lg:flex-[3] flex flex-col space-y-4 min-h-0">
+              <div className="flex-1 lg:flex-[3] flex flex-col space-y-2 min-h-0">
                 {/* Avatar Section */}
                 <div className="flex justify-center flex-shrink-0">
                   <AvatarContainer
@@ -469,11 +469,13 @@ function MainScreen() {
                 <StatusIndicators {...statusProps} />
 
                 {/* Conversation History - Now using separate component */}
-                <ConversationHistory 
-                  databaseReady={databaseReady}
-                  conversationMessages={conversationMessages}
-                  isConversationalMode={isConversationalMode}
-                />
+                <div className="h-64 min-h-[256px]">
+                  <ConversationHistory 
+                    databaseReady={databaseReady}
+                    conversationMessages={conversationMessages}
+                    isConversationalMode={isConversationalMode}
+                  />
+                </div>
 
                 {/* Chat Input - Only show if not in conversational mode */}
                 {!isConversationalMode && (
