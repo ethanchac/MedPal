@@ -240,53 +240,75 @@ function MainScreen() {
   };
 
   // Updated submit handler
+  // Updated handleSubmit function with proper error handling and state management
   const handleSubmit = async (overrideInput = null) => {
     const userMessage = overrideInput || input.trim();
-   
+    
     if (!userMessage) return;
 
     setIsThinking(true);
-   
+    
     // Clear inputs
     setInput("");
     setPendingInput("");
-   
+    
     try {
-      // Save user message
+      // Save user message first
       await saveMessageToConversation(userMessage, 'user');
-     
+      
       // Update conversation title if this is the first message
       if (conversationMessages.length === 0) {
         await updateConversationTitle(userMessage);
       }
 
+      // Reload conversation messages to show the user message immediately
+      await loadConversationMessages(currentConversationId);
+
       // Get AI response
       const res = await askGemini(userMessage);
       setResponse(res);
-     
+      
       // Save assistant response
       await saveMessageToConversation(res, 'assistant');
-     
-      // Reload conversation messages to show the new ones
+      
+      // Reload conversation messages to show both user and assistant messages
       await loadConversationMessages(currentConversationId);
-     
+      
       setIsThinking(false);
-     
-      // Speak the response (this will automatically pause/resume listening)
-      await speakResponse(res);
-     
+      
+      // Important: Speak the response AFTER all state updates are complete
+      // Use setTimeout to ensure state updates have been applied
+      setTimeout(async () => {
+        try {
+          await speakResponse(res);
+        } catch (ttsError) {
+          console.error('TTS Error:', ttsError);
+          // Don't let TTS errors break the conversation flow
+        }
+      }, 100);
+      
     } catch (error) {
       console.error('Error getting AI response:', error);
       const errorMsg = "Sorry, there was an error getting a response. Please try again.";
       setResponse(errorMsg);
+      
       try {
         await saveMessageToConversation(errorMsg, 'assistant');
         await loadConversationMessages(currentConversationId);
       } catch (saveError) {
         console.error('Error saving error message:', saveError);
       }
+      
       setIsThinking(false);
-      await speakResponse(errorMsg);
+      
+      // Same timeout pattern for error TTS
+      setTimeout(async () => {
+        try {
+          await speakResponse(errorMsg);
+        } catch (ttsError) {
+          console.error('TTS Error on error message:', ttsError);
+        }
+      }, 100);
     }
   };
 
