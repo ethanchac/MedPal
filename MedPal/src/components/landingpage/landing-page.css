@@ -1,0 +1,35 @@
+/* landing-page.css */
+
+/* Import brand font (Inter) from Google Fonts */
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap");
+
+body {
+  font-family: 'Inter', sans-serif;
+}
+
+/* Optional brand color variables for custom usage */
+:root {
+  --medpal-red: #a4231f;
+  --medpal-light-red: #fef2f2;
+  --medpal-gray-dark: #333333;
+}
+
+/* Hover scale animation for links or buttons */
+.hover-scale {
+  transition: transform 0.3s ease;
+}
+
+.hover-scale:hover {
+  transform: scale(1.05);
+}
+
+/* Soft shadow for hero images or avatars */
+.soft-shadow {
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+}
+
+/* Smaller text for disclaimers */
+.disclaimer-text {
+  font-size: 0.875rem;
+  color: var(--medpal-red);
+}
