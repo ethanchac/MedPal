@@ -49,7 +49,6 @@ const ConversationSidebar = ({
 
  const handleDeleteConversation = async (conversationId, e) => {
    e.stopPropagation();
-   if (!window.confirm('Delete this conversation?')) return;
 
    try {
      await ConversationService.deleteConversation(conversationId);
