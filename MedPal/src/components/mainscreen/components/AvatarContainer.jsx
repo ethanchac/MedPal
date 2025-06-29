@@ -1,4 +1,4 @@
-// AvatarContainer.jsx - Updated to pass props correctly
+// AvatarContainer.jsx - Updated with responsive height
 import React from 'react';
 import AvatarViewer from '../../../threejs/components/AvatarViewer'; // Adjust path as needed
 
@@ -10,7 +10,7 @@ const AvatarContainer = ({
   modelUrl = "https://models.readyplayer.me/685f5fe6ce6b397456e1ae90.glb"
 }) => {
   return (
-    <div className="w-full h-96 bg-gradient-to-b from-blue-50 to-white rounded-xl shadow-lg overflow-hidden">
+    <div className="w-full h-32 bg-gradient-to-b from-blue-50 to-white rounded-xl shadow-lg overflow-hidden">
       <AvatarViewer 
         isSpeaking={isSpeaking}
         currentAudio={currentAudio}

@@ -12,7 +12,7 @@ function CameraController() {
   useEffect(() => {
     // Focus on the face for better expression visibility
     camera.position.set(0, 1, 1);
-    camera.lookAt(0, 1.1, 0);
+    camera.lookAt(0, 0.8, 0);
   }, [camera]);
 
 
@@ -68,8 +68,8 @@ export default function AvatarViewer({
         <Canvas
           ref={canvasRef}
           camera={{
-            position: [0, 1.6, 0.7],
-            fov: 20,
+            position: [0, 1.2, 0.7],
+            fov: 50,
             near: 0.1,
             far: 1000,
           }}

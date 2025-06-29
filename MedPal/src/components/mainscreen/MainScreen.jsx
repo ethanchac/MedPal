@@ -1,15 +1,13 @@
-// MainScreen.jsx - Fixed layout issues
+// MainScreen.jsx - Updated to use ConversationHistory component
 import React, { useState, useEffect } from "react";
 import { askGemini } from "../../Gemini/GeminiAPIService";
 import ttsService from "../../threejs/TTSService";
 import { ConversationService } from "../../data/conversationService";
 import { supabase } from "../../data/supabase-client";
 
-
 // Custom Hooks
 import { useSpeechRecognition } from "./hooks/useSpeechRecognition";
 import { useTextToSpeech } from "./hooks/useTextToSpeech";
-
 
 // Components
 import AvatarContainer from "./components/AvatarContainer";
@@ -18,10 +16,10 @@ import ChatInput from "./components/ChatInput";
 import ChatResponse from "./components/ChatResponse";
 import VoiceSettings from "./components/VoiceSettings";
 import ConversationSidebar from "./components/ConversationSidebar";
+import ConversationHistory from "./components/ConversationHistory"; // New import
 import Authentication from "../authentication/Authentication";
 import Header from "./components/Header";
 import KeyParts from "./components/KeyParts";
-
 
 function MainScreen() {
   const [user, setUser] = useState(null);
@@ -32,14 +30,13 @@ function MainScreen() {
   const [showDebug, setShowDebug] = useState(false);
   const [currentConversationId, setCurrentConversationId] = useState(null);
   const [conversationMessages, setConversationMessages] = useState([]);
-  const [sidebarOpen, setSidebarOpen] = useState(false); // Changed default to false for mobile-first
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [databaseReady, setDatabaseReady] = useState(false);
  
   // New state for conversational mode
   const [isConversationalMode, setIsConversationalMode] = useState(false);
   const [pendingInput, setPendingInput] = useState("");
-
 
   const {
     isSpeaking: isTTSSpeaking,
@@ -52,7 +49,6 @@ function MainScreen() {
     testVoice,
     getVoiceStatusText
   } = useTextToSpeech();
-
 
   // Wrapper for speakResponse that handles conversation mode
   const speakResponse = async (text) => {
@@ -73,7 +69,6 @@ function MainScreen() {
     }
   };
 
-
   // Handle when user starts speaking (interrupts AI if needed)
   const handleSpeechStart = () => {
     if (isTTSSpeaking) {
@@ -82,12 +77,10 @@ function MainScreen() {
     }
   };
 
-
   // Handle when user stops speaking (after 3 seconds of silence)
   const handleSpeechEnd = () => {
     console.log("User stopped speaking");
   };
-
 
   // Handle transcript from speech recognition
   const handleTranscript = async (transcript) => {
@@ -103,7 +96,6 @@ function MainScreen() {
     }
   };
 
-
   const {
     isListening,
     isSupported,
@@ -115,7 +107,6 @@ function MainScreen() {
     pauseListening,
     resumeListening
   } = useSpeechRecognition(handleTranscript, handleSpeechStart, handleSpeechEnd);
-
 
   // Auth and database setup
   useEffect(() => {
@@ -130,9 +121,7 @@ function MainScreen() {
       }
     };
 
-
     getSession();
-
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
@@ -141,10 +130,8 @@ function MainScreen() {
       }
     );
 
-
     return () => subscription.unsubscribe();
   }, []);
-
 
   // Set sidebar open by default on desktop
   useEffect(() => {
@@ -154,14 +141,12 @@ function MainScreen() {
       }
     };
 
-
     // Set initial state
     handleResize();
    
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
-
 
   // In your useEffect for checking database
   useEffect(() => {
@@ -171,7 +156,7 @@ function MainScreen() {
         const { data, error } = await supabase.from('conversations').select('id').limit(1);
         if (!error) {
           setDatabaseReady(true);
-          initializeConversation(); // This might run before databaseReady is actually set
+          initializeConversation();
         }
       } catch (error) {
         console.error('Error checking database:', error);
@@ -180,7 +165,6 @@ function MainScreen() {
     };
     checkDatabase();
   }, [user]);
-
 
   // Database functions
   const initializeConversation = async () => {
@@ -200,7 +184,6 @@ function MainScreen() {
     }
   };
 
-
   const initializeNewConversation = async () => {
     try {
       const newConversation = await ConversationService.createConversation();
@@ -211,7 +194,6 @@ function MainScreen() {
       console.error('Error creating new conversation:', error);
     }
   };
-
 
   const loadConversationMessages = async (conversationId) => {
     if (!conversationId || !databaseReady) return;
@@ -231,7 +213,6 @@ function MainScreen() {
     }
   };
 
-
   const saveMessageToConversation = async (content, role) => {
     if (!currentConversationId || !databaseReady) return;
     try {
@@ -243,7 +224,6 @@ function MainScreen() {
     }
   };
 
-
   const updateConversationTitle = async (firstMessage) => {
     if (!currentConversationId || !databaseReady) return;
     try {
@@ -254,19 +234,16 @@ function MainScreen() {
     }
   };
 
-
   const clearInput = () => {
     setInput("");
     setPendingInput("");
   };
-
 
   // Updated submit handler
   const handleSubmit = async (overrideInput = null) => {
     const userMessage = overrideInput || input.trim();
    
     if (!userMessage) return;
-
 
     setIsThinking(true);
    
@@ -282,7 +259,6 @@ function MainScreen() {
       if (conversationMessages.length === 0) {
         await updateConversationTitle(userMessage);
       }
-
 
       // Get AI response
       const res = await askGemini(userMessage);
@@ -314,7 +290,6 @@ function MainScreen() {
     }
   };
 
-
   // Toggle conversational mode
   const toggleConversationalMode = () => {
     if (isConversationalMode) {
@@ -328,7 +303,6 @@ function MainScreen() {
     }
   };
 
-
   const handleStartListening = () => {
     if (isTTSSpeaking) {
       stopSpeaking();
@@ -336,14 +310,12 @@ function MainScreen() {
     startListening();
   };
 
-
   const handleStopListening = () => {
     stopListening();
     if (isConversationalMode) {
       setIsConversationalMode(false);
     }
   };
-
 
   // Conversation management
   const handleConversationSelect = async (conversationId) => {
@@ -354,7 +326,6 @@ function MainScreen() {
       setSidebarOpen(false);
     }
   };
-
 
   const handleNewConversation = async (conversationId) => {
     setCurrentConversationId(conversationId);
@@ -367,11 +338,9 @@ function MainScreen() {
     }
   };
 
-
   const toggleSidebar = () => {
     setSidebarOpen(!sidebarOpen);
   };
-
 
   // Updated props
   const voiceControlsProps = {
@@ -388,7 +357,6 @@ function MainScreen() {
     isUserSpeaking
   };
 
-
   const statusProps = {
     isListening,
     countdown: 0,
@@ -403,7 +371,6 @@ function MainScreen() {
     isPaused
   };
 
-
   const voiceSettingsProps = {
     ttsMode,
     setTtsMode,
@@ -411,7 +378,6 @@ function MainScreen() {
     isSpeaking: isTTSSpeaking,
     isThinking
   };
-
 
   if (authLoading) {
     return (
@@ -424,11 +390,9 @@ function MainScreen() {
     );
   }
 
-
   if (!user) {
     return <Authentication />;
   }
-
 
   return (
     <div className="relative h-screen w-full bg-white flex overflow-hidden">
@@ -465,7 +429,6 @@ function MainScreen() {
           <div className="w-10" />
         </div>
 
-
         {/* Layout Container with improved responsive design */}
         <div className="flex-1 flex flex-col p-4 lg:p-6 overflow-y-auto min-h-0">
           <div className="max-w-7xl mx-auto w-full flex flex-col space-y-4 min-h-0">
@@ -490,7 +453,6 @@ function MainScreen() {
               </div>
             </div>
 
-
             {/* Main Content Layout - Fixed responsive design */}
             <div className="flex-1 flex flex-col lg:flex-row gap-6 min-h-0">
               {/* Left side - Avatar, Messages, and Input */}
@@ -504,59 +466,14 @@ function MainScreen() {
                   />
                 </div>
 
-
                 <StatusIndicators {...statusProps} />
 
-
-                {/* Conversation History - Fixed scrolling */}
-                <div className="flex-1 min-h-0 overflow-hidden">
-                  {!databaseReady ? (
-                    <div className="flex items-center justify-center p-8 text-gray-500 h-full">
-                      <div className="text-center">
-                        <p>Loading database...</p>
-                        <p className="text-xs mt-1">Please wait</p>
-                      </div>
-                    </div>
-                  ) : conversationMessages.length > 0 ? (
-                    <div className="h-full overflow-y-auto">
-                      <div className="space-y-3 p-4 bg-gray-50 rounded-xl border border-gray-200">
-                        {conversationMessages.map((message, index) => (
-                          <div
-                            key={message.id || index}
-                            className={`p-4 rounded-xl ${
-                              message.role === 'user'
-                                ? 'bg-[#ED1C24] text-white ml-8'
-                                : 'bg-white text-gray-800 mr-8 border border-gray-200'
-                            }`}
-                          >
-                            <div className="flex items-start gap-2 mb-2 text-xs">
-                              <span className="font-semibold uppercase tracking-wide opacity-75">
-                                {message.role === 'user' ? 'You' : 'Assistant'}
-                              </span>
-                              <span className="opacity-50">
-                                {new Date(message.created_at).toLocaleTimeString()}
-                              </span>
-                            </div>
-                            <p className="text-sm leading-relaxed">{message.content}</p>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="flex items-center justify-center p-8 text-gray-500 h-full">
-                      <div className="text-center">
-                        <p>Start a conversation to see messages here</p>
-                        <p className="text-xs mt-2">
-                          {isConversationalMode
-                            ? "🎙️ Conversation mode is ON - just start talking!"
-                            : "Click the microphone or type your message"
-                          }
-                        </p>
-                      </div>
-                    </div>
-                  )}
-                </div>
-
+                {/* Conversation History - Now using separate component */}
+                <ConversationHistory 
+                  databaseReady={databaseReady}
+                  conversationMessages={conversationMessages}
+                  isConversationalMode={isConversationalMode}
+                />
 
                 {/* Chat Input - Only show if not in conversational mode */}
                 {!isConversationalMode && (
@@ -587,8 +504,4 @@ function MainScreen() {
   );
 }
 
-
 export default MainScreen;
-
-
-
