@@ -1,110 +1,113 @@
-// MainScreen.jsx - Clean simplified version
+// MainScreen.jsx - Updated for conversational flow
 import React, { useState, useEffect } from "react";
 import { askGemini } from "../../Gemini/GeminiAPIService";
 import ttsService from "../../threejs/TTSService";
 import { ConversationService } from "../../data/conversationService";
 import { supabase } from "../../data/supabase-client";
 
-
 // Custom Hooks
 import { useSpeechRecognition } from "./hooks/useSpeechRecognition";
 import { useTextToSpeech } from "./hooks/useTextToSpeech";
-import { useAutoSubmit } from "./hooks/useAutoSubmit";
-
 
 // Components
 import AvatarContainer from "./components/AvatarContainer";
 import StatusIndicators from "./components/StatusIndicators";
 import ChatInput from "./components/ChatInput";
+import ChatResponse from "./components/ChatResponse";
+import VoiceSettings from "./components/VoiceSettings";
 import ConversationSidebar from "./components/ConversationSidebar";
 import Authentication from "../authentication/Authentication";
 import Header from "./components/Header";
 import KeyParts from "./components/KeyParts";
 
-
 function MainScreen() {
-  // Basic state
   const [user, setUser] = useState(null);
   const [authLoading, setAuthLoading] = useState(true);
   const [input, setInput] = useState("");
   const [response, setResponse] = useState("");
   const [isThinking, setIsThinking] = useState(false);
   const [showDebug, setShowDebug] = useState(false);
-  
-  // Conversation state
   const [currentConversationId, setCurrentConversationId] = useState(null);
   const [conversationMessages, setConversationMessages] = useState([]);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [databaseReady, setDatabaseReady] = useState(false);
   
-  // Audio state for lip sync
-  const [currentAudio, setCurrentAudio] = useState(null);
+  // New state for conversational mode
+  const [isConversationalMode, setIsConversationalMode] = useState(false);
+  const [pendingInput, setPendingInput] = useState("");
 
-<<<<<<< HEAD
-  // TTS Hook
-=======
-
->>>>>>> d3c59c2524662f17ec447b092c5e05a23869a4a7
   const {
-    isSpeaking,
+    isSpeaking: isTTSSpeaking,
     ttsError,
     ttsMode,
     lastUsedProvider,
     setTtsMode,
-    speakResponse,
+    speakResponse: originalSpeakResponse,
     stopSpeaking,
     testVoice,
     getVoiceStatusText
   } = useTextToSpeech();
 
-<<<<<<< HEAD
-  // Audio tracking effect
-  useEffect(() => {
-    const audioCheckInterval = setInterval(() => {
-      const audioObj = ttsService.getCurrentAudio();
-      if (audioObj !== currentAudio) {
-        setCurrentAudio(audioObj);
-        if (audioObj) {
-          console.log('🔊 Audio object detected for lip sync:', audioObj);
-        }
+  // Wrapper for speakResponse that handles conversation mode
+  const speakResponse = async (text) => {
+    // Pause listening before speaking
+    if (isConversationalMode && isListening) {
+      pauseListening();
+    }
+    
+    try {
+      await originalSpeakResponse(text);
+    } finally {
+      // Resume listening after speaking is done
+      if (isConversationalMode) {
+        setTimeout(() => {
+          resumeListening();
+        }, 500);
       }
-    }, 100);
-
-    return () => clearInterval(audioCheckInterval);
-  }, [currentAudio]);
-
-  // Auto submit
-=======
-
->>>>>>> d3c59c2524662f17ec447b092c5e05a23869a4a7
-  const handleAutoSubmit = async () => {
-    stopListening();
-    clearAutoSubmitTimers();
-    await handleSubmit();
+    }
   };
 
-
-  const { countdown, startAutoSubmitCountdown, clearAutoSubmitTimers } = useAutoSubmit(handleAutoSubmit);
-
-<<<<<<< HEAD
-  // Speech recognition
-=======
-
->>>>>>> d3c59c2524662f17ec447b092c5e05a23869a4a7
-  const handleTranscript = (transcript) => {
-    setInput(prevInput => prevInput + transcript);
-    startAutoSubmitCountdown();
+  // Handle when user starts speaking (interrupts AI if needed)
+  const handleSpeechStart = () => {
+    if (isTTSSpeaking) {
+      console.log("User started speaking - interrupting AI");
+      stopSpeaking();
+    }
   };
 
+  // Handle when user stops speaking (after 3 seconds of silence)
+  const handleSpeechEnd = () => {
+    console.log("User stopped speaking");
+  };
 
-  const { isListening, isSupported, startListening, stopListening } = useSpeechRecognition(handleTranscript);
+  // Handle transcript from speech recognition
+  const handleTranscript = async (transcript) => {
+    console.log("Received transcript:", transcript);
+    
+    if (isConversationalMode) {
+      // In conversational mode, immediately process the transcript
+      setPendingInput(transcript);
+      await handleSubmit(transcript);
+    } else {
+      // In normal mode, add to input field
+      setInput(prevInput => prevInput + transcript);
+    }
+  };
 
-<<<<<<< HEAD
-  // Auth effect
-=======
+  const { 
+    isListening, 
+    isSupported, 
+    isSpeaking: isUserSpeaking,
+    isPaused,
+    startListening, 
+    stopListening,
+    forceSubmit,
+    pauseListening,
+    resumeListening
+  } = useSpeechRecognition(handleTranscript, handleSpeechStart, handleSpeechEnd);
 
->>>>>>> d3c59c2524662f17ec447b092c5e05a23869a4a7
+  // Auth and database setup (unchanged)
   useEffect(() => {
     const getSession = async () => {
       try {
@@ -117,9 +120,7 @@ function MainScreen() {
       }
     };
 
-
     getSession();
-
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
@@ -128,15 +129,9 @@ function MainScreen() {
       }
     );
 
-
     return () => subscription.unsubscribe();
   }, []);
 
-<<<<<<< HEAD
-  // Database check effect
-=======
-
->>>>>>> d3c59c2524662f17ec447b092c5e05a23869a4a7
   useEffect(() => {
     const checkDatabase = async () => {
       if (!user) return;
@@ -157,16 +152,12 @@ function MainScreen() {
     checkDatabase();
   }, [user]);
 
-<<<<<<< HEAD
-  // Conversation functions
-=======
-
->>>>>>> d3c59c2524662f17ec447b092c5e05a23869a4a7
+  // Database functions (unchanged)
   const initializeConversation = async () => {
     if (!databaseReady) return;
     try {
       const conversations = await ConversationService.getConversations();
-     
+    
       if (conversations.length > 0) {
         setCurrentConversationId(conversations[0].id);
         await loadConversationMessages(conversations[0].id);
@@ -179,7 +170,6 @@ function MainScreen() {
     }
   };
 
-
   const initializeNewConversation = async () => {
     try {
       const newConversation = await ConversationService.createConversation();
@@ -191,25 +181,23 @@ function MainScreen() {
     }
   };
 
-
   const loadConversationMessages = async (conversationId) => {
     if (!conversationId || !databaseReady) return;
-   
+  
     try {
       const conversation = await ConversationService.getConversation(conversationId);
       const messages = Array.isArray(conversation.messages) ? conversation.messages : [];
-     
+    
       setConversationMessages(messages);
-     
+    
       const lastAssistantMessage = messages.filter(msg => msg.role === 'assistant').pop();
       setResponse(lastAssistantMessage?.content || "");
-     
+    
     } catch (error) {
       console.error('Error loading conversation:', error);
       setConversationMessages([]);
     }
   };
-
 
   const saveMessageToConversation = async (content, role) => {
     if (!currentConversationId || !databaseReady) return;
@@ -222,7 +210,6 @@ function MainScreen() {
     }
   };
 
-
   const updateConversationTitle = async (firstMessage) => {
     if (!currentConversationId || !databaseReady) return;
     try {
@@ -233,77 +220,95 @@ function MainScreen() {
     }
   };
 
-<<<<<<< HEAD
-  // UI handlers
-=======
-
->>>>>>> d3c59c2524662f17ec447b092c5e05a23869a4a7
   const clearInput = () => {
     setInput("");
-    clearAutoSubmitTimers();
+    setPendingInput("");
   };
 
+  // Updated submit handler
+  const handleSubmit = async (overrideInput = null) => {
+    const userMessage = overrideInput || input.trim();
+    
+    if (!userMessage) return;
 
-  const handleSubmit = async () => {
-    clearAutoSubmitTimers();
-    if (input.trim()) {
-      const userMessage = input.trim();
-      setIsThinking(true);
-     
-      try {
-        // Save user message
-        await saveMessageToConversation(userMessage, 'user');
-       
-        // Update conversation title if this is the first message
-        if (conversationMessages.length === 0) {
-          await updateConversationTitle(userMessage);
-        }
-
-
-        // Get AI response
-        const res = await askGemini(userMessage);
-        setResponse(res);
-        setInput("");
-       
-        // Save assistant response
-        await saveMessageToConversation(res, 'assistant');
-       
-        // Reload conversation messages to show the new ones
-        await loadConversationMessages(currentConversationId);
-       
-        setIsThinking(false);
-        
-        // Speak the response
-        await speakResponse(res);
-      } catch (error) {
-        console.error('Error getting AI response:', error);
-        const errorMsg = "Sorry, there was an error getting a response. Please try again.";
-        setResponse(errorMsg);
-        try {
-          await saveMessageToConversation(errorMsg, 'assistant');
-          await loadConversationMessages(currentConversationId);
-        } catch (saveError) {
-          console.error('Error saving error message:', saveError);
-        }
-        setIsThinking(false);
-        await speakResponse(errorMsg);
+    setIsThinking(true);
+    
+    // Clear inputs
+    setInput("");
+    setPendingInput("");
+    
+    try {
+      // Save user message
+      await saveMessageToConversation(userMessage, 'user');
+      
+      // Update conversation title if this is the first message
+      if (conversationMessages.length === 0) {
+        await updateConversationTitle(userMessage);
       }
+
+      // Get AI response
+      const res = await askGemini(userMessage);
+      setResponse(res);
+      
+      // Save assistant response
+      await saveMessageToConversation(res, 'assistant');
+      
+      // Reload conversation messages to show the new ones
+      await loadConversationMessages(currentConversationId);
+      
+      setIsThinking(false);
+      
+      // Speak the response (this will automatically pause/resume listening)
+      await speakResponse(res);
+      
+    } catch (error) {
+      console.error('Error getting AI response:', error);
+      const errorMsg = "Sorry, there was an error getting a response. Please try again.";
+      setResponse(errorMsg);
+      try {
+        await saveMessageToConversation(errorMsg, 'assistant');
+        await loadConversationMessages(currentConversationId);
+      } catch (saveError) {
+        console.error('Error saving error message:', saveError);
+      }
+      setIsThinking(false);
+      await speakResponse(errorMsg);
     }
   };
 
+  // Toggle conversational mode
+  const toggleConversationalMode = () => {
+    if (isConversationalMode) {
+      // Turning off conversational mode
+      stopListening();
+      setIsConversationalMode(false);
+    } else {
+      // Turning on conversational mode
+      setIsConversationalMode(true);
+      handleStartListening();
+    }
+  };
 
   const handleStartListening = () => {
-    stopSpeaking();
+    if (isTTSSpeaking) {
+      stopSpeaking();
+    }
     startListening();
   };
 
+  const handleStopListening = () => {
+    stopListening();
+    if (isConversationalMode) {
+      setIsConversationalMode(false);
+    }
+  };
 
+  // Conversation management (unchanged)
   const handleConversationSelect = async (conversationId) => {
     setCurrentConversationId(conversationId);
     await loadConversationMessages(conversationId);
     setSidebarOpen(true);
   };
-
 
   const handleNewConversation = async (conversationId) => {
     setCurrentConversationId(conversationId);
@@ -313,57 +318,47 @@ function MainScreen() {
     setSidebarOpen(true);
   };
 
-
   const toggleSidebar = () => {
     setSidebarOpen(!sidebarOpen);
   };
 
-<<<<<<< HEAD
-  const toggleDebug = () => {
-    setShowDebug(!showDebug);
-    console.log('Debug mode:', !showDebug);
-  };
-
-  // Props objects
-=======
-
->>>>>>> d3c59c2524662f17ec447b092c5e05a23869a4a7
+  // Updated props
   const voiceControlsProps = {
     isListening,
     isSupported,
     startListening: handleStartListening,
-    stopListening,
+    stopListening: handleStopListening,
     clearInput,
     hasInput: !!input,
-    isSpeaking,
-    isThinking
+    isSpeaking: isTTSSpeaking,
+    isThinking,
+    isConversationalMode,
+    toggleConversationalMode,
+    isUserSpeaking
   };
-
 
   const statusProps = {
     isListening,
-    countdown,
+    countdown: 0, // Remove countdown in conversational mode
     isThinking,
-    isSpeaking,
+    isSpeaking: isTTSSpeaking,
+    isUserSpeaking,
     ttsError,
     getVoiceStatusText,
-    stopSpeaking
+    stopSpeaking,
+    isConversationalMode,
+    pendingInput,
+    isPaused
   };
-
 
   const voiceSettingsProps = {
     ttsMode,
     setTtsMode,
     testVoice,
-    isSpeaking,
+    isSpeaking: isTTSSpeaking,
     isThinking
   };
 
-<<<<<<< HEAD
-  // Loading screen
-=======
-
->>>>>>> d3c59c2524662f17ec447b092c5e05a23869a4a7
   if (authLoading) {
     return (
       <div className="flex items-center justify-center h-screen bg-white">
@@ -375,20 +370,10 @@ function MainScreen() {
     );
   }
 
-<<<<<<< HEAD
-  // Authentication screen
-=======
-
->>>>>>> d3c59c2524662f17ec447b092c5e05a23869a4a7
   if (!user) {
     return <Authentication />;
   }
 
-<<<<<<< HEAD
-  // Main app
-=======
-
->>>>>>> d3c59c2524662f17ec447b092c5e05a23869a4a7
   return (
     <div className="relative h-screen w-full bg-white flex">
       <ConversationSidebar
@@ -400,13 +385,13 @@ function MainScreen() {
         isCollapsed={sidebarCollapsed}
         onToggleCollapse={setSidebarCollapsed}
       />
-     
+    
       <Header
         isSidebarOpen={sidebarOpen}
         isSidebarCollapsed={sidebarCollapsed}
         voiceSettingsProps={voiceSettingsProps}
       />
-     
+    
       <div className="flex-1 flex flex-col relative pt-16 bg-white">
         {/* Mobile Header */}
         <div className="md:hidden flex items-center justify-between p-4 bg-white border-b border-gray-200">
@@ -416,15 +401,8 @@ function MainScreen() {
             </svg>
           </button>
           <h1 className="text-lg font-semibold text-gray-800">MedPal</h1>
-          <button 
-            onClick={toggleDebug}
-            className={`p-2 rounded-lg text-xs ${showDebug ? 'bg-yellow-200' : 'bg-gray-100'}`}
-            title="Toggle lip sync debug"
-          >
-            {showDebug ? '🔍' : '👁️'}
-          </button>
+          <div className="w-10" />
         </div>
-
 
         {/* Layout Container */}
         <div className="flex-1 flex flex-col p-4 lg:p-6 overflow-y-auto">
@@ -434,29 +412,21 @@ function MainScreen() {
               <h1 className="text-3xl md:text-4xl font-bold text-center text-black">
                 MedPal
               </h1>
-            </div>
-
-<<<<<<< HEAD
-            {/* Debug info panel */}
-            {showDebug && (
-              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 text-sm">
-                <h3 className="font-bold mb-2">🔍 Lip Sync Debug Info</h3>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <strong>Speaking:</strong> {isSpeaking ? '✅ Yes' : '❌ No'}<br/>
-                    <strong>Current Audio:</strong> {currentAudio ? '✅ Present' : '❌ None'}<br/>
-                    <strong>Audio Type:</strong> {currentAudio?._isBrowserTTS ? 'Browser TTS' : currentAudio ? 'ElevenLabs' : 'None'}
-                  </div>
-                  <div>
-                    <strong>TTS Mode:</strong> {ttsMode}<br/>
-                    <strong>Last Provider:</strong> {lastUsedProvider || 'None'}<br/>
-                    <strong>TTS Error:</strong> {ttsError || 'None'}
-                  </div>
-                </div>
+              
+              {/* Conversational Mode Toggle */}
+              <div className="flex justify-center mt-4">
+                <button
+                  onClick={toggleConversationalMode}
+                  className={`px-6 py-2 rounded-full font-medium transition-all duration-200 ${
+                    isConversationalMode
+                      ? 'bg-green-500 text-white shadow-lg'
+                      : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                  }`}
+                >
+                  {isConversationalMode ? '🎙️ Conversation Mode ON' : '🎙️ Conversation Mode OFF'}
+                </button>
               </div>
-            )}
-=======
->>>>>>> d3c59c2524662f17ec447b092c5e05a23869a4a7
+            </div>
 
             {/* Main Content Layout */}
             <div className="flex gap-6">
@@ -464,23 +434,14 @@ function MainScreen() {
               <div className="w-3/5 flex flex-col space-y-4">
                 {/* Avatar Section */}
                 <div className="flex justify-center">
-<<<<<<< HEAD
-                  <AvatarContainer 
-                    isSpeaking={isSpeaking} 
-                    currentAudio={currentAudio}
-=======
                   <AvatarContainer
-                    isSpeaking={isSpeaking}
+                    isSpeaking={isTTSSpeaking}
                     currentAudio={ttsService.currentAudio}
->>>>>>> d3c59c2524662f17ec447b092c5e05a23869a4a7
                     showDebug={showDebug}
-                    expressiveness={1.0}
                   />
                 </div>
 
-
                 <StatusIndicators {...statusProps} />
-
 
                 {/* Conversation History */}
                 <div className="max-h-80 overflow-y-auto">
@@ -518,22 +479,29 @@ function MainScreen() {
                     <div className="flex items-center justify-center p-8 text-gray-500">
                       <div className="text-center">
                         <p>Start a conversation to see messages here</p>
+                        <p className="text-xs mt-2">
+                          {isConversationalMode 
+                            ? "🎙️ Conversation mode is ON - just start talking!"
+                            : "Click the microphone or type your message"
+                          }
+                        </p>
                       </div>
                     </div>
                   )}
                 </div>
 
-
-                {/* Chat Input */}
-                <ChatInput
-                  input={input}
-                  setInput={setInput}
-                  isThinking={isThinking}
-                  voiceControlsProps={voiceControlsProps}
-                  onSubmit={handleSubmit}
-                />
+                {/* Chat Input - Only show if not in conversational mode */}
+                {!isConversationalMode && (
+                  <ChatInput
+                    input={input}
+                    setInput={setInput}
+                    isThinking={isThinking}
+                    voiceControlsProps={voiceControlsProps}
+                    onSubmit={() => handleSubmit()}
+                  />
+                )}
               </div>
-             
+            
               {/* Right side - KeyParts (40% width) */}
               <div className="w-2/5">
                 <KeyParts
@@ -548,6 +516,5 @@ function MainScreen() {
     </div>
   );
 }
-
 
 export default MainScreen;
