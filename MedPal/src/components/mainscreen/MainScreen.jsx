@@ -5,10 +5,12 @@ import ttsService from "../../threejs/TTSService";
 import { ConversationService } from "../../data/conversationService";
 import { supabase } from "../../data/supabase-client";
 
+
 // Custom Hooks
 import { useSpeechRecognition } from "./hooks/useSpeechRecognition";
 import { useTextToSpeech } from "./hooks/useTextToSpeech";
 import { useAutoSubmit } from "./hooks/useAutoSubmit";
+
 
 // Components
 import AvatarContainer from "./components/AvatarContainer";
@@ -18,6 +20,7 @@ import ConversationSidebar from "./components/ConversationSidebar";
 import Authentication from "../authentication/Authentication";
 import Header from "./components/Header";
 import KeyParts from "./components/KeyParts";
+
 
 function MainScreen() {
   // Basic state
@@ -38,7 +41,11 @@ function MainScreen() {
   // Audio state for lip sync
   const [currentAudio, setCurrentAudio] = useState(null);
 
+<<<<<<< HEAD
   // TTS Hook
+=======
+
+>>>>>>> d3c59c2524662f17ec447b092c5e05a23869a4a7
   const {
     isSpeaking,
     ttsError,
@@ -51,6 +58,7 @@ function MainScreen() {
     getVoiceStatusText
   } = useTextToSpeech();
 
+<<<<<<< HEAD
   // Audio tracking effect
   useEffect(() => {
     const audioCheckInterval = setInterval(() => {
@@ -67,23 +75,36 @@ function MainScreen() {
   }, [currentAudio]);
 
   // Auto submit
+=======
+
+>>>>>>> d3c59c2524662f17ec447b092c5e05a23869a4a7
   const handleAutoSubmit = async () => {
     stopListening();
     clearAutoSubmitTimers();
     await handleSubmit();
   };
 
+
   const { countdown, startAutoSubmitCountdown, clearAutoSubmitTimers } = useAutoSubmit(handleAutoSubmit);
 
+<<<<<<< HEAD
   // Speech recognition
+=======
+
+>>>>>>> d3c59c2524662f17ec447b092c5e05a23869a4a7
   const handleTranscript = (transcript) => {
     setInput(prevInput => prevInput + transcript);
     startAutoSubmitCountdown();
   };
 
+
   const { isListening, isSupported, startListening, stopListening } = useSpeechRecognition(handleTranscript);
 
+<<<<<<< HEAD
   // Auth effect
+=======
+
+>>>>>>> d3c59c2524662f17ec447b092c5e05a23869a4a7
   useEffect(() => {
     const getSession = async () => {
       try {
@@ -96,7 +117,9 @@ function MainScreen() {
       }
     };
 
+
     getSession();
+
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
@@ -105,10 +128,15 @@ function MainScreen() {
       }
     );
 
+
     return () => subscription.unsubscribe();
   }, []);
 
+<<<<<<< HEAD
   // Database check effect
+=======
+
+>>>>>>> d3c59c2524662f17ec447b092c5e05a23869a4a7
   useEffect(() => {
     const checkDatabase = async () => {
       if (!user) return;
@@ -129,12 +157,16 @@ function MainScreen() {
     checkDatabase();
   }, [user]);
 
+<<<<<<< HEAD
   // Conversation functions
+=======
+
+>>>>>>> d3c59c2524662f17ec447b092c5e05a23869a4a7
   const initializeConversation = async () => {
     if (!databaseReady) return;
     try {
       const conversations = await ConversationService.getConversations();
-      
+     
       if (conversations.length > 0) {
         setCurrentConversationId(conversations[0].id);
         await loadConversationMessages(conversations[0].id);
@@ -147,6 +179,7 @@ function MainScreen() {
     }
   };
 
+
   const initializeNewConversation = async () => {
     try {
       const newConversation = await ConversationService.createConversation();
@@ -158,23 +191,25 @@ function MainScreen() {
     }
   };
 
+
   const loadConversationMessages = async (conversationId) => {
     if (!conversationId || !databaseReady) return;
-    
+   
     try {
       const conversation = await ConversationService.getConversation(conversationId);
       const messages = Array.isArray(conversation.messages) ? conversation.messages : [];
-      
+     
       setConversationMessages(messages);
-      
+     
       const lastAssistantMessage = messages.filter(msg => msg.role === 'assistant').pop();
       setResponse(lastAssistantMessage?.content || "");
-      
+     
     } catch (error) {
       console.error('Error loading conversation:', error);
       setConversationMessages([]);
     }
   };
+
 
   const saveMessageToConversation = async (content, role) => {
     if (!currentConversationId || !databaseReady) return;
@@ -187,6 +222,7 @@ function MainScreen() {
     }
   };
 
+
   const updateConversationTitle = async (firstMessage) => {
     if (!currentConversationId || !databaseReady) return;
     try {
@@ -197,38 +233,44 @@ function MainScreen() {
     }
   };
 
+<<<<<<< HEAD
   // UI handlers
+=======
+
+>>>>>>> d3c59c2524662f17ec447b092c5e05a23869a4a7
   const clearInput = () => {
     setInput("");
     clearAutoSubmitTimers();
   };
+
 
   const handleSubmit = async () => {
     clearAutoSubmitTimers();
     if (input.trim()) {
       const userMessage = input.trim();
       setIsThinking(true);
-      
+     
       try {
         // Save user message
         await saveMessageToConversation(userMessage, 'user');
-        
+       
         // Update conversation title if this is the first message
         if (conversationMessages.length === 0) {
           await updateConversationTitle(userMessage);
         }
 
+
         // Get AI response
         const res = await askGemini(userMessage);
         setResponse(res);
         setInput("");
-        
+       
         // Save assistant response
         await saveMessageToConversation(res, 'assistant');
-        
+       
         // Reload conversation messages to show the new ones
         await loadConversationMessages(currentConversationId);
-        
+       
         setIsThinking(false);
         
         // Speak the response
@@ -249,35 +291,43 @@ function MainScreen() {
     }
   };
 
+
   const handleStartListening = () => {
     stopSpeaking();
     startListening();
   };
 
+
   const handleConversationSelect = async (conversationId) => {
     setCurrentConversationId(conversationId);
     await loadConversationMessages(conversationId);
-    setSidebarOpen(false);
+    setSidebarOpen(true);
   };
+
 
   const handleNewConversation = async (conversationId) => {
     setCurrentConversationId(conversationId);
     setConversationMessages([]);
     setResponse("");
     setInput("");
-    setSidebarOpen(false);
+    setSidebarOpen(true);
   };
+
 
   const toggleSidebar = () => {
     setSidebarOpen(!sidebarOpen);
   };
 
+<<<<<<< HEAD
   const toggleDebug = () => {
     setShowDebug(!showDebug);
     console.log('Debug mode:', !showDebug);
   };
 
   // Props objects
+=======
+
+>>>>>>> d3c59c2524662f17ec447b092c5e05a23869a4a7
   const voiceControlsProps = {
     isListening,
     isSupported,
@@ -289,6 +339,7 @@ function MainScreen() {
     isThinking
   };
 
+
   const statusProps = {
     isListening,
     countdown,
@@ -299,6 +350,7 @@ function MainScreen() {
     stopSpeaking
   };
 
+
   const voiceSettingsProps = {
     ttsMode,
     setTtsMode,
@@ -307,7 +359,11 @@ function MainScreen() {
     isThinking
   };
 
+<<<<<<< HEAD
   // Loading screen
+=======
+
+>>>>>>> d3c59c2524662f17ec447b092c5e05a23869a4a7
   if (authLoading) {
     return (
       <div className="flex items-center justify-center h-screen bg-white">
@@ -319,12 +375,20 @@ function MainScreen() {
     );
   }
 
+<<<<<<< HEAD
   // Authentication screen
+=======
+
+>>>>>>> d3c59c2524662f17ec447b092c5e05a23869a4a7
   if (!user) {
     return <Authentication />;
   }
 
+<<<<<<< HEAD
   // Main app
+=======
+
+>>>>>>> d3c59c2524662f17ec447b092c5e05a23869a4a7
   return (
     <div className="relative h-screen w-full bg-white flex">
       <ConversationSidebar
@@ -336,13 +400,13 @@ function MainScreen() {
         isCollapsed={sidebarCollapsed}
         onToggleCollapse={setSidebarCollapsed}
       />
-      
-      <Header 
-        isSidebarOpen={sidebarOpen} 
+     
+      <Header
+        isSidebarOpen={sidebarOpen}
         isSidebarCollapsed={sidebarCollapsed}
         voiceSettingsProps={voiceSettingsProps}
       />
-      
+     
       <div className="flex-1 flex flex-col relative pt-16 bg-white">
         {/* Mobile Header */}
         <div className="md:hidden flex items-center justify-between p-4 bg-white border-b border-gray-200">
@@ -361,16 +425,18 @@ function MainScreen() {
           </button>
         </div>
 
+
         {/* Layout Container */}
         <div className="flex-1 flex flex-col p-4 lg:p-6 overflow-y-auto">
           <div className="max-w-7xl mx-auto flex flex-col space-y-4">
             {/* Header with Title */}
             <div className="flex-shrink-0">
-              <h1 className="text-3xl md:text-4xl font-bold text-center text-[#ED1C24]">
-                AI Medical Assistant
+              <h1 className="text-3xl md:text-4xl font-bold text-center text-black">
+                MedPal
               </h1>
             </div>
 
+<<<<<<< HEAD
             {/* Debug info panel */}
             {showDebug && (
               <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 text-sm">
@@ -389,6 +455,8 @@ function MainScreen() {
                 </div>
               </div>
             )}
+=======
+>>>>>>> d3c59c2524662f17ec447b092c5e05a23869a4a7
 
             {/* Main Content Layout */}
             <div className="flex gap-6">
@@ -396,15 +464,23 @@ function MainScreen() {
               <div className="w-3/5 flex flex-col space-y-4">
                 {/* Avatar Section */}
                 <div className="flex justify-center">
+<<<<<<< HEAD
                   <AvatarContainer 
                     isSpeaking={isSpeaking} 
                     currentAudio={currentAudio}
+=======
+                  <AvatarContainer
+                    isSpeaking={isSpeaking}
+                    currentAudio={ttsService.currentAudio}
+>>>>>>> d3c59c2524662f17ec447b092c5e05a23869a4a7
                     showDebug={showDebug}
                     expressiveness={1.0}
                   />
                 </div>
 
+
                 <StatusIndicators {...statusProps} />
+
 
                 {/* Conversation History */}
                 <div className="max-h-80 overflow-y-auto">
@@ -447,8 +523,9 @@ function MainScreen() {
                   )}
                 </div>
 
+
                 {/* Chat Input */}
-                <ChatInput 
+                <ChatInput
                   input={input}
                   setInput={setInput}
                   isThinking={isThinking}
@@ -456,11 +533,11 @@ function MainScreen() {
                   onSubmit={handleSubmit}
                 />
               </div>
-              
+             
               {/* Right side - KeyParts (40% width) */}
               <div className="w-2/5">
-                <KeyParts 
-                  response={response || "Welcome to MedPal! I'm here to help with your medical questions. Feel free to ask about symptoms, treatments, or general health advice."} 
+                <KeyParts
+                  response={response || "Welcome to MedPal! I'm here to help with your medical questions. Feel free to ask about symptoms, treatments, or general health advice."}
                   conversationId={currentConversationId}
                 />
               </div>
@@ -471,5 +548,6 @@ function MainScreen() {
     </div>
   );
 }
+
 
 export default MainScreen;
