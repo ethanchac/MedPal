@@ -1,4 +1,4 @@
-// MainScreen.jsx - Clean version without debugging
+// MainScreen.jsx - Clean simplified version
 import React, { useState, useEffect } from "react";
 import { askGemini } from "../../Gemini/GeminiAPIService";
 import ttsService from "../../threejs/TTSService";
@@ -14,26 +14,31 @@ import { useAutoSubmit } from "./hooks/useAutoSubmit";
 import AvatarContainer from "./components/AvatarContainer";
 import StatusIndicators from "./components/StatusIndicators";
 import ChatInput from "./components/ChatInput";
-import ChatResponse from "./components/ChatResponse";
-import VoiceSettings from "./components/VoiceSettings";
 import ConversationSidebar from "./components/ConversationSidebar";
 import Authentication from "../authentication/Authentication";
 import Header from "./components/Header";
 import KeyParts from "./components/KeyParts";
 
 function MainScreen() {
+  // Basic state
   const [user, setUser] = useState(null);
   const [authLoading, setAuthLoading] = useState(true);
   const [input, setInput] = useState("");
   const [response, setResponse] = useState("");
   const [isThinking, setIsThinking] = useState(false);
   const [showDebug, setShowDebug] = useState(false);
+  
+  // Conversation state
   const [currentConversationId, setCurrentConversationId] = useState(null);
   const [conversationMessages, setConversationMessages] = useState([]);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [databaseReady, setDatabaseReady] = useState(false);
+  
+  // Audio state for lip sync
+  const [currentAudio, setCurrentAudio] = useState(null);
 
+  // TTS Hook
   const {
     isSpeaking,
     ttsError,
@@ -46,6 +51,22 @@ function MainScreen() {
     getVoiceStatusText
   } = useTextToSpeech();
 
+  // Audio tracking effect
+  useEffect(() => {
+    const audioCheckInterval = setInterval(() => {
+      const audioObj = ttsService.getCurrentAudio();
+      if (audioObj !== currentAudio) {
+        setCurrentAudio(audioObj);
+        if (audioObj) {
+          console.log('🔊 Audio object detected for lip sync:', audioObj);
+        }
+      }
+    }, 100);
+
+    return () => clearInterval(audioCheckInterval);
+  }, [currentAudio]);
+
+  // Auto submit
   const handleAutoSubmit = async () => {
     stopListening();
     clearAutoSubmitTimers();
@@ -54,6 +75,7 @@ function MainScreen() {
 
   const { countdown, startAutoSubmitCountdown, clearAutoSubmitTimers } = useAutoSubmit(handleAutoSubmit);
 
+  // Speech recognition
   const handleTranscript = (transcript) => {
     setInput(prevInput => prevInput + transcript);
     startAutoSubmitCountdown();
@@ -61,6 +83,7 @@ function MainScreen() {
 
   const { isListening, isSupported, startListening, stopListening } = useSpeechRecognition(handleTranscript);
 
+  // Auth effect
   useEffect(() => {
     const getSession = async () => {
       try {
@@ -85,6 +108,7 @@ function MainScreen() {
     return () => subscription.unsubscribe();
   }, []);
 
+  // Database check effect
   useEffect(() => {
     const checkDatabase = async () => {
       if (!user) return;
@@ -105,6 +129,7 @@ function MainScreen() {
     checkDatabase();
   }, [user]);
 
+  // Conversation functions
   const initializeConversation = async () => {
     if (!databaseReady) return;
     try {
@@ -172,6 +197,7 @@ function MainScreen() {
     }
   };
 
+  // UI handlers
   const clearInput = () => {
     setInput("");
     clearAutoSubmitTimers();
@@ -204,6 +230,8 @@ function MainScreen() {
         await loadConversationMessages(currentConversationId);
         
         setIsThinking(false);
+        
+        // Speak the response
         await speakResponse(res);
       } catch (error) {
         console.error('Error getting AI response:', error);
@@ -244,6 +272,12 @@ function MainScreen() {
     setSidebarOpen(!sidebarOpen);
   };
 
+  const toggleDebug = () => {
+    setShowDebug(!showDebug);
+    console.log('Debug mode:', !showDebug);
+  };
+
+  // Props objects
   const voiceControlsProps = {
     isListening,
     isSupported,
@@ -273,6 +307,7 @@ function MainScreen() {
     isThinking
   };
 
+  // Loading screen
   if (authLoading) {
     return (
       <div className="flex items-center justify-center h-screen bg-white">
@@ -284,10 +319,12 @@ function MainScreen() {
     );
   }
 
+  // Authentication screen
   if (!user) {
     return <Authentication />;
   }
 
+  // Main app
   return (
     <div className="relative h-screen w-full bg-white flex">
       <ConversationSidebar
@@ -315,7 +352,13 @@ function MainScreen() {
             </svg>
           </button>
           <h1 className="text-lg font-semibold text-gray-800">MedPal</h1>
-          <div className="w-10" />
+          <button 
+            onClick={toggleDebug}
+            className={`p-2 rounded-lg text-xs ${showDebug ? 'bg-yellow-200' : 'bg-gray-100'}`}
+            title="Toggle lip sync debug"
+          >
+            {showDebug ? '🔍' : '👁️'}
+          </button>
         </div>
 
         {/* Layout Container */}
@@ -328,6 +371,25 @@ function MainScreen() {
               </h1>
             </div>
 
+            {/* Debug info panel */}
+            {showDebug && (
+              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 text-sm">
+                <h3 className="font-bold mb-2">🔍 Lip Sync Debug Info</h3>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <strong>Speaking:</strong> {isSpeaking ? '✅ Yes' : '❌ No'}<br/>
+                    <strong>Current Audio:</strong> {currentAudio ? '✅ Present' : '❌ None'}<br/>
+                    <strong>Audio Type:</strong> {currentAudio?._isBrowserTTS ? 'Browser TTS' : currentAudio ? 'ElevenLabs' : 'None'}
+                  </div>
+                  <div>
+                    <strong>TTS Mode:</strong> {ttsMode}<br/>
+                    <strong>Last Provider:</strong> {lastUsedProvider || 'None'}<br/>
+                    <strong>TTS Error:</strong> {ttsError || 'None'}
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* Main Content Layout */}
             <div className="flex gap-6">
               {/* Left side - Avatar, Messages, and Input (60% width) */}
@@ -336,8 +398,9 @@ function MainScreen() {
                 <div className="flex justify-center">
                   <AvatarContainer 
                     isSpeaking={isSpeaking} 
-                    currentAudio={ttsService.currentAudio}
+                    currentAudio={currentAudio}
                     showDebug={showDebug}
+                    expressiveness={1.0}
                   />
                 </div>
 

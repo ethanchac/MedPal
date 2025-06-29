@@ -1,37 +1,47 @@
-// AvatarModel.jsx - Fixed version with better defaults
+// Enhanced AvatarModel.jsx - Complete version with emotion-aware expressions
 import React, { useRef, useEffect, useState } from "react";
 import { useFrame } from "@react-three/fiber";
 import { useGLTF } from "@react-three/drei";
 import { useLipSync } from "./useLipSync";
 import { AvatarAnimations } from "../AvatarAnimation";
+import * as THREE from "three";
 
 function AvatarModel({ 
   isSpeaking = false, 
   currentAudio = null, 
-  modelUrl = "https://models.readyplayer.me/685f5fe6ce6b397456e1ae90.glb",
+  modelUrl = "https://models.readyplayer.me/6860857a08372d74e879eadc.glb",
   expressiveness = 1.0,
-  showDebugVisuals = false
+  showDebugVisuals = false,
+  currentText = "", // New prop for emotion analysis
+  enableMicroExpressions = true, // New prop for subtle expressions
+  emotionalRange = 1.0 // New prop to control emotional intensity
 }) {
   const { scene } = useGLTF(modelUrl);
   const modelRef = useRef();
   const [animations, setAnimations] = useState(null);
   const [debugMode, setDebugMode] = useState(showDebugVisuals);
   
-  const lipSyncData = useLipSync(isSpeaking, currentAudio, expressiveness);
+  // Micro-expression timers
+  const blinkTimerRef = useRef(0);
+  const microExpressionTimerRef = useRef(0);
+  const lastEmotionRef = useRef('neutral');
+  const emotionTransitionRef = useRef(0);
+  const previousMorphValues = useRef({});
+
+  const lipSyncData = useLipSync(isSpeaking, currentAudio, expressiveness, currentText);
 
   useEffect(() => {
     if (scene && !animations) {
-      console.log("Initializing avatar animations...");
       const avatarAnimations = new AvatarAnimations(scene);
       avatarAnimations.setExpressiveness(expressiveness);
       setAnimations(avatarAnimations);
-      
+
       if (process.env.NODE_ENV === 'development' || showDebugVisuals) {
         setDebugMode(true);
-        console.log("Animation debug info:", avatarAnimations.getDebugInfo());
+        console.log("Enhanced animation debug info:", avatarAnimations.getDebugInfo());
       }
     }
-  }, [scene, animations, showDebugVisuals]);
+  }, [scene, animations, showDebugVisuals, expressiveness]);
 
   useEffect(() => {
     if (animations) {
@@ -39,84 +49,352 @@ function AvatarModel({
     }
   }, [expressiveness, animations]);
 
-  useFrame(() => {
+  // Enhanced morph target application with smooth transitions
+  const applyMorphWithTransition = (dict, influences, morphNames, targetValue, smoothFactor) => {
+    if (!dict || !influences || !morphNames) return;
+
+    for (const morphName of morphNames) {
+      // Try exact match first
+      if (dict[morphName] !== undefined) {
+        const index = dict[morphName];
+        const currentValue = influences[index];
+        const smoothedValue = THREE.MathUtils.lerp(currentValue, targetValue, smoothFactor);
+        influences[index] = Math.max(0, Math.min(1, smoothedValue));
+        
+        // Store for debugging
+        if (debugMode) {
+          previousMorphValues.current[morphName] = smoothedValue;
+        }
+        return;
+      }
+
+      // Try case-insensitive match
+      const matchedKey = Object.keys(dict).find(key => 
+        key.toLowerCase() === morphName.toLowerCase()
+      );
+      
+      if (matchedKey) {
+        const index = dict[matchedKey];
+        const currentValue = influences[index];
+        const smoothedValue = THREE.MathUtils.lerp(currentValue, targetValue, smoothFactor);
+        influences[index] = Math.max(0, Math.min(1, smoothedValue));
+        
+        if (debugMode) {
+          previousMorphValues.current[matchedKey] = smoothedValue;
+        }
+        return;
+      }
+    }
+  };
+
+  // Generate micro-expressions based on emotion
+  const generateMicroExpressions = (currentEmotion, emotionalIntensity, deltaTime) => {
+    microExpressionTimerRef.current += deltaTime;
+    
+    // Check if emotion has changed
+    if (lastEmotionRef.current !== currentEmotion) {
+      emotionTransitionRef.current = 0;
+      lastEmotionRef.current = currentEmotion;
+    } else {
+      emotionTransitionRef.current = Math.min(1, emotionTransitionRef.current + deltaTime * 2);
+    }
+
+    const microExpressions = {
+      subtle_smile: 0,
+      slight_frown: 0,
+      eyebrow_flash: 0,
+      nostril_subtle: 0,
+      cheek_lift: 0
+    };
+
+    // Emotion-specific micro-expressions
+    switch (currentEmotion) {
+      case 'happy':
+        microExpressions.subtle_smile = emotionalIntensity * 0.3 * emotionTransitionRef.current;
+        microExpressions.cheek_lift = emotionalIntensity * 0.2;
+        break;
+      
+      case 'sad':
+        microExpressions.slight_frown = emotionalIntensity * 0.4 * emotionTransitionRef.current;
+        break;
+        
+      case 'surprised':
+        if (microExpressionTimerRef.current < 0.5) {
+          microExpressions.eyebrow_flash = emotionalIntensity * 0.8;
+        }
+        break;
+        
+      case 'concerned':
+        microExpressions.slight_frown = emotionalIntensity * 0.2;
+        microExpressions.eyebrow_flash = Math.sin(microExpressionTimerRef.current * 3) * 0.1 * emotionalIntensity;
+        break;
+    }
+
+    return microExpressions;
+  };
+
+  // Enhanced frame update with all new features
+  useFrame((state, deltaTime) => {
+    if (!scene || !isSpeaking || !lipSyncData) return;
+
+    const EXPRESSIVENESS_BOOST = expressiveness * emotionalRange * 3;
+    const SMOOTH_FACTOR = 0.15;
+
+    // Get current emotion data
+    const currentEmotion = lipSyncData.currentEmotion || 'neutral';
+    const emotionalIntensity = lipSyncData.emotionalIntensity || 0;
+
+    // Generate micro-expressions if enabled
+    const microExpressions = enableMicroExpressions ? 
+      generateMicroExpressions(currentEmotion, emotionalIntensity, deltaTime) : {};
+
+    scene.traverse((child) => {
+      if (child.isMesh && child.morphTargetDictionary && child.morphTargetInfluences) {
+        const dict = child.morphTargetDictionary;
+        const influences = child.morphTargetInfluences;
+        const mouthShapes = lipSyncData.mouthShapes || {};
+        const expressions = lipSyncData.facialExpressions || {};
+
+        // === MOUTH ANIMATIONS ===
+        
+        // Primary mouth opening (A, O sounds)
+        applyMorphWithTransition(dict, influences, 
+          ['mouthOpen', 'mouth_open', 'jawOpen', 'viseme_aa', 'viseme_A'], 
+          mouthShapes.openAmount * EXPRESSIVENESS_BOOST, SMOOTH_FACTOR);
+        
+        // Mouth width (E, I sounds)
+        applyMorphWithTransition(dict, influences, 
+          ['mouthWide', 'mouth_wide', 'viseme_e', 'viseme_E', 'viseme_I'], 
+          mouthShapes.wideAmount * EXPRESSIVENESS_BOOST, SMOOTH_FACTOR);
+        
+        // Mouth rounding (O, U sounds)
+        applyMorphWithTransition(dict, influences, 
+          ['mouthFunnel', 'mouth_funnel', 'mouthRound', 'viseme_o', 'viseme_O', 'viseme_U'], 
+          mouthShapes.roundAmount * EXPRESSIVENESS_BOOST, SMOOTH_FACTOR);
+        
+        // Smile (with emotion enhancement)
+        let smileIntensity = mouthShapes.smileAmount;
+        if (currentEmotion === 'happy') {
+          smileIntensity += emotionalIntensity * 0.4;
+        }
+        smileIntensity += microExpressions.subtle_smile || 0;
+        
+        applyMorphWithTransition(dict, influences, 
+          ['mouthSmile', 'mouth_smile', 'smile', 'happy'], 
+          smileIntensity * EXPRESSIVENESS_BOOST, SMOOTH_FACTOR);
+
+        // Lip pucker (P, B, M sounds)
+        applyMorphWithTransition(dict, influences, 
+          ['mouthPucker', 'mouth_pucker', 'viseme_p', 'viseme_P', 'viseme_B', 'viseme_M'], 
+          mouthShapes.lipPucker * EXPRESSIVENESS_BOOST, SMOOTH_FACTOR);
+        
+        // Lip press (F, V sounds)
+        applyMorphWithTransition(dict, influences, 
+          ['mouthPress', 'mouth_press', 'viseme_f', 'viseme_F', 'viseme_V'], 
+          mouthShapes.lipPress * EXPRESSIVENESS_BOOST, SMOOTH_FACTOR);
+
+        // Frown (with emotion enhancement)
+        let frownIntensity = 0;
+        if (currentEmotion === 'sad' || currentEmotion === 'concerned') {
+          frownIntensity = emotionalIntensity * 0.3;
+        }
+        frownIntensity += microExpressions.slight_frown || 0;
+        
+        applyMorphWithTransition(dict, influences, 
+          ['mouthFrown', 'mouth_frown', 'frown', 'sad'], 
+          frownIntensity * EXPRESSIVENESS_BOOST, SMOOTH_FACTOR);
+
+        // === JAW ANIMATIONS ===
+        applyMorphWithTransition(dict, influences, 
+          ['jawDrop', 'jaw_drop', 'jawOpen', 'jaw_open'], 
+          mouthShapes.jawDrop * EXPRESSIVENESS_BOOST, SMOOTH_FACTOR);
+
+        // === EYE AND EYEBROW ANIMATIONS ===
+        
+        // Eyebrow raise (with emotion and micro-expression enhancement)
+        let eyebrowIntensity = expressions.eyebrowRaise;
+        if (currentEmotion === 'surprised') {
+          eyebrowIntensity += emotionalIntensity * 0.6;
+        } else if (currentEmotion === 'concerned' || currentEmotion === 'questioning') {
+          eyebrowIntensity += emotionalIntensity * 0.3;
+        }
+        eyebrowIntensity += microExpressions.eyebrow_flash || 0;
+        
+        applyMorphWithTransition(dict, influences, 
+          ['browUp', 'eyebrow_up', 'browRaise', 'surprised', 'browUp_L', 'browUp_R'], 
+          eyebrowIntensity * EXPRESSIVENESS_BOOST, SMOOTH_FACTOR * 0.8);
+
+        // Eye squint
+        applyMorphWithTransition(dict, influences, 
+          ['eyeSquint', 'eyes_squint', 'squint', 'eyeSquint_L', 'eyeSquint_R'], 
+          expressions.eyeSquint * EXPRESSIVENESS_BOOST, SMOOTH_FACTOR);
+
+        // Enhanced natural blinking
+        blinkTimerRef.current += deltaTime;
+        let blinkValue = expressions.eyeBlink;
+        
+        if (enableMicroExpressions) {
+          // Natural blink every 3-6 seconds
+          const nextBlinkTime = 3 + Math.random() * 3;
+          if (blinkTimerRef.current > nextBlinkTime) {
+            blinkValue = 1;
+            if (blinkTimerRef.current > nextBlinkTime + 0.15) { // Blink duration
+              blinkTimerRef.current = 0;
+              blinkValue = 0;
+            }
+          }
+          
+          // More frequent blinking when nervous/concerned
+          if (currentEmotion === 'concerned' && Math.random() > 0.98) {
+            blinkValue = 1;
+          }
+        }
+        
+        applyMorphWithTransition(dict, influences, 
+          ['blink', 'eyesBlink', 'eyeBlink', 'eyeClose', 'blink_L', 'blink_R'], 
+          blinkValue, 0.8); // Faster blink response
+
+        // === CHEEK ANIMATIONS ===
+        let cheekPuffValue = mouthShapes.cheekPuff || 0;
+        cheekPuffValue += microExpressions.cheek_lift || 0;
+        
+        applyMorphWithTransition(dict, influences, 
+          ['cheekPuff', 'cheek_puff', 'cheekBlow', 'cheek_blow'], 
+          cheekPuffValue * EXPRESSIVENESS_BOOST, SMOOTH_FACTOR);
+
+        // === NOSTRIL ANIMATIONS ===
+        let nostrilValue = mouthShapes.nostrilFlare || 0;
+        nostrilValue += microExpressions.nostril_subtle || 0;
+        
+        applyMorphWithTransition(dict, influences, 
+          ['nostrilFlare', 'nostril_flare', 'noseSneer', 'nose_sneer'], 
+          nostrilValue * EXPRESSIVENESS_BOOST, SMOOTH_FACTOR);
+
+        // === TONGUE ANIMATIONS ===
+        applyMorphWithTransition(dict, influences, 
+          ['tongueOut', 'tongue_out', 'viseme_L', 'viseme_T'], 
+          (mouthShapes.tongueOut || 0) * EXPRESSIVENESS_BOOST, SMOOTH_FACTOR);
+
+        // === EMOTIONAL OVERLAY MORPHS ===
+        
+        // Apply general emotional states if available
+        if (currentEmotion !== 'neutral' && emotionalIntensity > 0.1) {
+          const emotionMorphs = {
+            'happy': ['happy', 'joy', 'pleased'],
+            'sad': ['sad', 'sorrow', 'disappointed'],
+            'surprised': ['surprised', 'shock', 'amazed'],
+            'concerned': ['worried', 'concerned', 'anxious'],
+            'confident': ['confident', 'determined'],
+            'questioning': ['confused', 'puzzled', 'curious']
+          };
+          
+          const morphsForEmotion = emotionMorphs[currentEmotion] || [];
+          morphsForEmotion.forEach(morphName => {
+            applyMorphWithTransition(dict, influences, [morphName], 
+              emotionalIntensity * 0.4 * EXPRESSIVENESS_BOOST, SMOOTH_FACTOR * 0.5);
+          });
+        }
+      }
+    });
+
+    // Apply bone-based animations using the existing AvatarAnimations system
     if (animations) {
       animations.applyAnimations(lipSyncData, isSpeaking);
     }
-
-    // REDUCED fallback animations to prevent weird looking movements
-    if (modelRef.current && isSpeaking) {
-      const time = Date.now() * 0.001;
-      
-      // Much more subtle breathing effect
-      const breatheIntensity = (lipSyncData.mouthShapes?.openAmount || lipSyncData.mouthOpenAmount || 0) * 0.5;
-      const breathe = 1 + Math.sin(time * 3) * 0.003 * breatheIntensity * expressiveness; // Reduced from 0.008
-      
-      // Only apply minimal scale changes
-      modelRef.current.scale.set(breathe, 1, 1); // Only scale X slightly, keep Y and Z normal
-      
-      // Much more subtle position changes
-      const headMovement = (lipSyncData.facialExpressions?.headNod || lipSyncData.headBob || 0);
-      const bob = Math.sin(time * 2) * 0.005 * headMovement * expressiveness; // Reduced from 0.02
-      modelRef.current.position.y = -0.5 + bob; // Match the new base position
-      
-      // Minimal head rotation
-      const headTiltValue = (lipSyncData.facialExpressions?.headTilt || lipSyncData.headTilt || 0);
-      const sway = Math.sin(time * 1.5) * 0.01 * headTiltValue * expressiveness; // Reduced from 0.03
-      modelRef.current.rotation.y = sway;
-      
-    } else if (modelRef.current && !isSpeaking) {
-      // Smooth return to neutral position
-      const lerpFactor = 0.05; // Slower lerp for smoother transition
-      const currentScale = modelRef.current.scale.x;
-      const currentY = modelRef.current.position.y;
-      const currentRotY = modelRef.current.rotation.y;
-      
-      modelRef.current.scale.set(
-        currentScale + (1 - currentScale) * lerpFactor, // Return to scale 1
-        1,
-        1
-      );
-      modelRef.current.position.y = currentY + (-0.5 - currentY) * lerpFactor; // Return to -0.5
-      modelRef.current.rotation.y = currentRotY + (0 - currentRotY) * lerpFactor;
-    }
   });
+
+  // Debug logging for development
+  useEffect(() => {
+    if (debugMode && lipSyncData) {
+      console.log("Enhanced lip sync data:", {
+        mouthShapes: lipSyncData.mouthShapes,
+        facialExpressions: lipSyncData.facialExpressions,
+        currentEmotion: lipSyncData.currentEmotion,
+        emotionalIntensity: lipSyncData.emotionalIntensity,
+        isSpeaking,
+        expressiveness,
+        emotionalRange
+      });
+    }
+  }, [lipSyncData, isSpeaking, debugMode, expressiveness, emotionalRange]);
+
+  // Log available morph targets for debugging
+  useEffect(() => {
+    if (scene && debugMode) {
+      scene.traverse((child) => {
+        if (child.isMesh && child.morphTargetDictionary) {
+          console.log(`Mesh: ${child.name}`);
+          console.log("Available morph targets:", Object.keys(child.morphTargetDictionary));
+        }
+      });
+    }
+  }, [scene, debugMode]);
 
   return (
     <>
       <primitive 
         ref={modelRef}
         object={scene} 
-        scale={1.0}                    // Normal scale
-        position={[0, -0.5, 0]}        // Higher position to show full head
-        rotation={[0, 0, 0]}           // No rotation
+        scale={1.0}
+        position={[0, -0.5, 0]}
+        rotation={[0, 0, 0]}
       />
-      
-      {/* Debug visualization with better positioning */}
+
+      {/* Enhanced Debug Visualizations */}
       {debugMode && (
         <>
-          <group position={[1.5, 0, 0]}> {/* Moved closer to avatar */}
-            {/* Mouth shapes indicators - made smaller */}
+          {/* Mouth shape indicators */}
+          <group position={[1.5, 0, 0]}>
             <mesh position={[0, 0, 0]}>
-              <boxGeometry args={[0.05, Math.max(0.05, (lipSyncData.mouthShapes?.openAmount || lipSyncData.mouthOpenAmount || 0) * 1), 0.05]} />
+              <boxGeometry args={[0.05, Math.max(0.05, (lipSyncData.mouthShapes?.openAmount || 0) * 1), 0.05]} />
               <meshBasicMaterial color="red" />
             </mesh>
-            
             <mesh position={[0.1, 0, 0]}>
               <boxGeometry args={[0.05, Math.max(0.05, (lipSyncData.mouthShapes?.wideAmount || 0) * 1), 0.05]} />
               <meshBasicMaterial color="green" />
             </mesh>
-            
             <mesh position={[0.2, 0, 0]}>
               <boxGeometry args={[0.05, Math.max(0.05, (lipSyncData.mouthShapes?.roundAmount || 0) * 1), 0.05]} />
               <meshBasicMaterial color="blue" />
             </mesh>
+            <mesh position={[0.3, 0, 0]}>
+              <boxGeometry args={[0.05, Math.max(0.05, (lipSyncData.mouthShapes?.smileAmount || 0) * 1), 0.05]} />
+              <meshBasicMaterial color="yellow" />
+            </mesh>
+            <mesh position={[0.4, 0, 0]}>
+              <boxGeometry args={[0.05, Math.max(0.05, (lipSyncData.mouthShapes?.jawDrop || 0) * 1), 0.05]} />
+              <meshBasicMaterial color="orange" />
+            </mesh>
           </group>
-          
-          {/* Status indicator */}
+
+          {/* Emotion indicator */}
+          <group position={[-1.5, 0, 0]}>
+            <mesh position={[0, 0, 0]}>
+              <boxGeometry args={[0.1, Math.max(0.05, (lipSyncData.emotionalIntensity || 0) * 2), 0.05]} />
+              <meshBasicMaterial color={
+                lipSyncData.currentEmotion === 'happy' ? 'yellow' :
+                lipSyncData.currentEmotion === 'sad' ? 'blue' :
+                lipSyncData.currentEmotion === 'surprised' ? 'orange' :
+                lipSyncData.currentEmotion === 'concerned' ? 'red' :
+                'gray'
+              } />
+            </mesh>
+          </group>
+
+          {/* Status indicators */}
           <mesh position={[0, 1, 0]}>
             <sphereGeometry args={[0.05]} />
             <meshBasicMaterial color={isSpeaking ? "green" : "red"} />
+          </mesh>
+
+          <mesh position={[0.2, 1, 0]}>
+            <sphereGeometry args={[0.05]} />
+            <meshBasicMaterial color={currentAudio ? "blue" : "gray"} />
+          </mesh>
+
+          <mesh position={[0.4, 1, 0]}>
+            <sphereGeometry args={[0.05]} />
+            <meshBasicMaterial color={enableMicroExpressions ? "purple" : "gray"} />
           </mesh>
         </>
       )}

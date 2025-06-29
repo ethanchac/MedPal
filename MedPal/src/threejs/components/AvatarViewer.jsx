@@ -1,183 +1,247 @@
-import React, { Suspense, useState, useEffect, useRef } from "react";
-import { Canvas } from "@react-three/fiber";
-import { OrbitControls, useGLTF } from "@react-three/drei";
+// Enhanced AvatarViewer.jsx - Updated to support emotion-aware expressions
+import React, { Suspense, useRef, useEffect, useState } from "react";
+import { Canvas, useThree } from "@react-three/fiber";
+import { Box } from "@react-three/drei";
+import AvatarModel from "./AvatarModel";
 
-// Simplified AvatarModel component for testing
-function AvatarModel({ 
-  isSpeaking = false, 
-  modelUrl = "https://models.readyplayer.me/685f5fe6ce6b397456e1ae90.glb",
-  showDebugVisuals = false
-}) {
-  const { scene } = useGLTF(modelUrl);
-  const modelRef = useRef();
+function CameraController() {
+  const { camera } = useThree();
 
-  return (
-    <>
-      <primitive 
-        ref={modelRef}
-        object={scene} 
-        scale={1.2}                    // Slightly larger scale
-        position={[0, -1.8, 0]}        // Much lower position to show full torso
-        rotation={[0, 0, 0]}           
-      />
-      
-      {/* Debug helper to show model bounds */}
-      {showDebugVisuals && (
-        <>
-          {/* Ground reference */}
-          <mesh position={[0, -2, 0]} rotation={[-Math.PI / 2, 0, 0]}>
-            <planeGeometry args={[4, 4]} />
-            <meshBasicMaterial color="lightgray" transparent opacity={0.3} />
-          </mesh>
-          
-          {/* Height markers */}
-          <mesh position={[2, -1, 0]}>
-            <boxGeometry args={[0.1, 0.1, 0.1]} />
-            <meshBasicMaterial color="red" />
-          </mesh>
-          <mesh position={[2, 0, 0]}>
-            <boxGeometry args={[0.1, 0.1, 0.1]} />
-            <meshBasicMaterial color="green" />
-          </mesh>
-          <mesh position={[2, 1, 0]}>
-            <boxGeometry args={[0.1, 0.1, 0.1]} />
-            <meshBasicMaterial color="blue" />
-          </mesh>
-        </>
-      )}
-    </>
-  );
+  useEffect(() => {
+    // Focus on the face for better expression visibility
+    camera.position.set(0, 1.05, 0.9);
+    camera.lookAt(0.5, 1.3, 0);
+  }, [camera]);
+
+  return null;
 }
 
-
-// Error Boundary Component
-class AvatarErrorBoundary extends React.Component {
-  constructor(props) {
-    super(props);
-    this.state = { hasError: false, error: null };
-  }
-
-  static getDerivedStateFromError(error) {
-    return { hasError: true, error };
-  }
-
-  componentDidCatch(error, errorInfo) {
-    console.error('Avatar Error:', error, errorInfo);
-  }
-
-  render() {
-    if (this.state.hasError) {
-      return (
-        <div className="flex items-center justify-center h-full bg-gray-100">
-          <div className="text-center p-4">
-            <div className="text-red-500 text-lg mb-2">Avatar Loading Error</div>
-            <div className="text-sm text-gray-600 mb-4">
-              {this.state.error?.message || 'Unable to load 3D avatar'}
-            </div>
-            <button 
-              onClick={() => this.setState({ hasError: false, error: null })}
-              className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
-            >
-              Retry
-            </button>
-          </div>
-        </div>
-      );
-    }
-
-    return this.props.children;
-  }
-}
-
-// Loading fallback component
 function LoadingFallback() {
   return (
-    <mesh>
-      <boxGeometry args={[1, 2, 0.5]} />
-      <meshStandardMaterial color="lightgray" />
-    </mesh>
+    <Box args={[1, 1, 1]} position={[0, 0, 0]}>
+      <meshBasicMaterial color="gray" />
+    </Box>
   );
 }
 
-export default function AvatarViewer({ 
-  isSpeaking = false, 
+export default function AvatarViewer({
+  isSpeaking = false,
   currentAudio = null,
-  modelUrl = "https://models.readyplayer.me/685f5fe6ce6b397456e1ae90.glb",
-  enableControls = true,
+  modelUrl = "https://models.readyplayer.me/6860857a08372d74e879eadc.glb",
   showDebug = false,
-  expressiveness = 1.0
+  expressiveness = 1.0,
+  currentText = "", // New: text being spoken for emotion analysis
+  enableMicroExpressions = true, // New: subtle micro-expressions
+  emotionalRange = 1.0, // New: how much emotion affects expressions
+  showEmotionControls = false // New: show emotion control panel
 }) {
-  const [cameraSettings, setCameraSettings] = useState({
-    position: [0, 0.5 , 3],   // Further back and centered
-    fov: 7,                 // Wider field of view
-    target: [0, 0.1, 0]        // Look at center
+  const canvasRef = useRef();
+  const [debugExpressiveness, setDebugExpressiveness] = useState(expressiveness);
+  const [debugEmotionalRange, setDebugEmotionalRange] = useState(emotionalRange);
+  const [debugMicroExpressions, setDebugMicroExpressions] = useState(enableMicroExpressions);
+
+  // Test different emotions for debugging
+  const [testEmotion, setTestEmotion] = useState('');
+  const [testTexts] = useState({
+    happy: "I'm so excited to help you today! This is wonderful news and I'm absolutely thrilled!",
+    sad: "I'm sorry to hear about your troubles. Unfortunately, this is quite disappointing.",
+    surprised: "Wow! That's absolutely incredible! I can't believe this amazing discovery!",
+    concerned: "I'm worried about this situation. We need to be careful and consider the risks.",
+    confident: "I'm absolutely certain this will work perfectly. We have strong evidence.",
+    questioning: "Are you sure about this? Maybe we should consider other options?"
   });
 
+  const currentDisplayText = testEmotion && testTexts[testEmotion] ? testTexts[testEmotion] : currentText;
+
   return (
-    <div className="h-full w-full bg-gradient-to-b from-blue-50 to-white relative">
-      <AvatarErrorBoundary>
-        <Canvas 
-          camera={{ 
-            position: cameraSettings.position,
-            fov: cameraSettings.fov,
+    <div className="w-full h-96 relative">
+      {/* Main Canvas */}
+      <div className="w-full h-full pointer-events-none bg-gradient-to-b from-blue-50 to-white rounded-xl shadow-lg overflow-hidden">
+        <Canvas
+          ref={canvasRef}
+          camera={{
+            position: [0, 1.6, 0.7],
+            fov: 50,
             near: 0.1,
-            far: 1000
+            far: 1000,
           }}
-          onCreated={({ camera }) => {
-            camera.lookAt(...cameraSettings.target);
-            console.log('Camera positioned for full body view');
+          onCreated={(state) => {
+            console.log("Enhanced Canvas created, camera at:", state.camera.position);
           }}
         >
-          {/* Improved lighting setup */}
+          <CameraController />
+
+          {/* Enhanced Lighting for better facial detail */}
           <ambientLight intensity={0.6} />
-          <directionalLight position={[5, 5, 5]} intensity={0.8} castShadow />
-          <directionalLight position={[-5, 5, 5]} intensity={0.4} />
-          <directionalLight position={[0, 5, -5]} intensity={0.3} />
-          <pointLight position={[0, 3, 3]} intensity={0.4} />
-          
-          {/* Avatar Model */}
+          <directionalLight position={[5, 5, 5]} intensity={0.8} />
+          <directionalLight position={[-5, 3, 2]} intensity={0.4} />
+          <pointLight position={[0, 2, 2]} intensity={0.5} />
+          {/* Additional face lighting */}
+          <pointLight position={[0.5, 1.5, 1]} intensity={0.3} color="#fff8dc" />
+          <pointLight position={[-0.5, 1.5, 1]} intensity={0.3} color="#fff8dc" />
+
+          {/* Enhanced Avatar Model */}
           <Suspense fallback={<LoadingFallback />}>
-            <AvatarModel 
-              isSpeaking={isSpeaking} 
+            <AvatarModel
+              isSpeaking={isSpeaking}
               currentAudio={currentAudio}
               modelUrl={modelUrl}
+              expressiveness={debugExpressiveness}
               showDebugVisuals={showDebug}
+              currentText={currentDisplayText}
+              enableMicroExpressions={debugMicroExpressions}
+              emotionalRange={debugEmotionalRange}
             />
           </Suspense>
-          
-          {/* Camera Controls */}
-          {enableControls && (
-            <OrbitControls 
-              enableZoom={true} 
-              enableRotate={true} 
-              enablePan={false}
-              maxDistance={2.5}    // Closer max distance
-              minDistance={1}      // Closer min distance
-              maxPolarAngle={Math.PI / 2}  
-              minPolarAngle={Math.PI / 6}    
-              target={[0, 0.8, 0]} // Higher target point
-            />
-          )}
         </Canvas>
-      </AvatarErrorBoundary>
-      
-      {/* Debug overlay */}
+      </div>
+
+      {/* Enhanced Debug Panel */}
       {showDebug && (
-        <div className="absolute top-4 left-4 bg-black bg-opacity-75 text-white p-3 rounded text-xs max-w-sm">
-          <div className="font-bold mb-2">Zoomed Head View</div>
-          <div>Camera Position: [0, 0.2, 1.5]</div>
-          <div>Camera FOV: 25°</div>
-          <div>Look At: [0, 0.8, 0]</div>
-          <div>Model Position: [0, -1.8, 0]</div>
-          <div>Model Scale: 1.2</div>
-          <div className="mt-2 text-green-300">
-            ✅ Closer and lower camera angle
+        <div className="absolute top-2 left-2 bg-black bg-opacity-90 text-white p-3 rounded text-xs max-w-sm pointer-events-auto">
+          <div className="font-bold mb-2">🎭 Enhanced Expression Debug</div>
+          
+          {/* Expressiveness Control */}
+          <div className="mb-2">
+            <label className="block text-xs mb-1">Expressiveness: {debugExpressiveness.toFixed(2)}</label>
+            <input 
+              type="range" 
+              min="0" 
+              max="2" 
+              step="0.1" 
+              value={debugExpressiveness}
+              onChange={(e) => setDebugExpressiveness(parseFloat(e.target.value))}
+              className="w-full h-1 bg-gray-600 rounded-lg appearance-none cursor-pointer"
+            />
           </div>
-          <div className="mt-1 text-blue-300">
-            🎯 Focused on face and upper neck
+
+          {/* Emotional Range Control */}
+          <div className="mb-2">
+            <label className="block text-xs mb-1">Emotional Range: {debugEmotionalRange.toFixed(2)}</label>
+            <input 
+              type="range" 
+              min="0" 
+              max="2" 
+              step="0.1" 
+              value={debugEmotionalRange}
+              onChange={(e) => setDebugEmotionalRange(parseFloat(e.target.value))}
+              className="w-full h-1 bg-gray-600 rounded-lg appearance-none cursor-pointer"
+            />
+          </div>
+
+          {/* Micro-expressions Toggle */}
+          <div className="mb-2">
+            <label className="flex items-center text-xs">
+              <input 
+                type="checkbox" 
+                checked={debugMicroExpressions}
+                onChange={(e) => setDebugMicroExpressions(e.target.checked)}
+                className="mr-2"
+              />
+              Micro-expressions
+            </label>
+          </div>
+
+          {/* Current State Display */}
+          <div className="text-xs mt-2 space-y-1 border-t pt-2">
+            <div>🗣️ Speaking: {isSpeaking ? "🟢" : "🔴"}</div>
+            <div>🔊 Audio: {currentAudio ? "🟢" : "🔴"}</div>
+            <div>🎭 Micro-expr: {debugMicroExpressions ? "🟢" : "🔴"}</div>
+            <div>📝 Text: {currentDisplayText ? "🟢" : "🔴"}</div>
           </div>
         </div>
       )}
+
+      {/* Emotion Testing Panel */}
+      {showEmotionControls && (
+        <div className="absolute top-2 right-2 bg-white bg-opacity-95 p-3 rounded shadow-lg text-sm max-w-xs pointer-events-auto">
+          <div className="font-bold mb-2">🎭 Emotion Testing</div>
+          
+          <div className="mb-2">
+            <label className="block text-xs mb-1">Test Emotion:</label>
+            <select 
+              value={testEmotion}
+              onChange={(e) => setTestEmotion(e.target.value)}
+              className="w-full p-1 border rounded text-xs"
+            >
+              <option value="">Use Current Text</option>
+              <option value="happy">😊 Happy</option>
+              <option value="sad">😢 Sad</option>
+              <option value="surprised">😲 Surprised</option>
+              <option value="concerned">😟 Concerned</option>
+              <option value="confident">😤 Confident</option>
+              <option value="questioning">🤔 Questioning</option>
+            </select>
+          </div>
+
+          {testEmotion && (
+            <div className="text-xs bg-gray-100 p-2 rounded">
+              <strong>Test Text:</strong> {testTexts[testEmotion]?.substring(0, 60)}...
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Status Indicator */}
+      <div className="absolute bottom-2 right-2 bg-black bg-opacity-75 text-white p-2 rounded text-xs">
+        <div>Speaking: {isSpeaking ? "🟢" : "🔴"}</div>
+        <div>Audio: {currentAudio ? "🟢" : "🔴"}</div>
+        {currentDisplayText && (
+          <div>Emotion: {currentDisplayText ? "🎭" : "➖"}</div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// Usage example component
+export function ExampleUsage() {
+  const [isSpeaking, setIsSpeaking] = useState(false);
+  const [currentText, setCurrentText] = useState("");
+
+  const testSpeak = (text) => {
+    setCurrentText(text);
+    setIsSpeaking(true);
+    
+    // Simulate speaking duration
+    setTimeout(() => {
+      setIsSpeaking(false);
+      setCurrentText("");
+    }, 5000);
+  };
+
+  return (
+    <div className="p-4">
+      <AvatarViewer
+        isSpeaking={isSpeaking}
+        currentText={currentText}
+        expressiveness={1.2}
+        enableMicroExpressions={true}
+        emotionalRange={1.5}
+        showDebug={true}
+        showEmotionControls={true}
+      />
+      
+      <div className="mt-4 space-x-2">
+        <button 
+          onClick={() => testSpeak("Hello! I'm so happy to meet you today!")}
+          className="px-3 py-1 bg-green-500 text-white rounded text-sm"
+        >
+          Test Happy
+        </button>
+        <button 
+          onClick={() => testSpeak("I'm sorry, but I'm concerned about this situation.")}
+          className="px-3 py-1 bg-orange-500 text-white rounded text-sm"
+        >
+          Test Concerned
+        </button>
+        <button 
+          onClick={() => testSpeak("Wow! That's absolutely amazing and surprising!")}
+          className="px-3 py-1 bg-purple-500 text-white rounded text-sm"
+        >
+          Test Surprised
+        </button>
+      </div>
     </div>
   );
 }
