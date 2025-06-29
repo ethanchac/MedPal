@@ -303,32 +303,7 @@ function AvatarModel({
     }
   });
 
-  // Debug logging for development
-  useEffect(() => {
-    if (debugMode && lipSyncData) {
-      console.log("Enhanced lip sync data:", {
-        mouthShapes: lipSyncData.mouthShapes,
-        facialExpressions: lipSyncData.facialExpressions,
-        currentEmotion: lipSyncData.currentEmotion,
-        emotionalIntensity: lipSyncData.emotionalIntensity,
-        isSpeaking,
-        expressiveness,
-        emotionalRange
-      });
-    }
-  }, [lipSyncData, isSpeaking, debugMode, expressiveness, emotionalRange]);
 
-  // Log available morph targets for debugging
-  useEffect(() => {
-    if (scene && debugMode) {
-      scene.traverse((child) => {
-        if (child.isMesh && child.morphTargetDictionary) {
-          console.log(`Mesh: ${child.name}`);
-          console.log("Available morph targets:", Object.keys(child.morphTargetDictionary));
-        }
-      });
-    }
-  }, [scene, debugMode]);
 
   return (
     <>

@@ -27,7 +27,6 @@ export class AvatarAnimations {
   initialize() {
     if (!this.scene) return;
 
-    console.log("=== AVATAR ANIMATION DEBUG ===");
     
     this.scene.traverse((child) => {
       if (child.isBone) {
@@ -66,7 +65,6 @@ export class AvatarAnimations {
     for (const [boneType, patterns] of Object.entries(bonePatterns)) {
       if (patterns.some(pattern => name.includes(pattern))) {
         this.bones[boneType] = bone;
-        console.log(`Found ${boneType.toUpperCase()} bone: ${bone.name}`);
         break;
       }
     }
@@ -83,18 +81,14 @@ export class AvatarAnimations {
         influences: mesh.morphTargetInfluences
       };
       
-      console.log(`Mesh ${mesh.name} morph targets:`, targets);
     }
   }
 
   logFindings() {
-    console.log("=== ANIMATION CAPABILITIES ===");
     const foundBones = Object.entries(this.bones)
       .filter(([key, bone]) => bone !== null)
       .map(([key, bone]) => `${key}: ${bone.name}`);
     
-    console.log("Bones found:", foundBones);
-    console.log("Morphs found:", Object.keys(this.morphTargets));
   }
 
   // Apply mouth shape animations
@@ -404,6 +398,5 @@ export class AvatarAnimations {
       eyebrows: (baseSmoothness * 1.3) / factor,
     };
     
-    console.log(`Expressiveness set to ${level}, smoothing factors:`, this.smoothingFactors);
   }
 }
