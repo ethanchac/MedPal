@@ -30,6 +30,9 @@ export default function Authentication() {
     const { error } = await supabase.auth.signInWithPassword({
       email: formData.email,
       password: formData.password,
+      options: {
+        emailRedirectTo: `${window.location.origin}/auth`,
+  },
     });
     if (error) {
       setError(error.message);
@@ -55,12 +58,15 @@ export default function Authentication() {
     const { error } = await supabase.auth.signUp({
       email: formData.email,
       password: formData.password,
+      options: {
+        emailRedirectTo: `${window.location.origin}/auth`,
+  },
     });
     if (error) {
       setError(error.message);
     } else {
-      setMessage("Check your email for the confirmation link!");
       setFormData({ email: "", password: "", confirmPassword: "" });
+      setMessage("Check your email for the confirmation link!");
     }
     setLoading(false);
   };
