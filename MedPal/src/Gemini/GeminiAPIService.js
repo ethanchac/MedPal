@@ -35,6 +35,9 @@ export async function askGemini(userInput) {
 - Direct answers without unnecessary details
 - If the prompt is listing many different symptoms try to narrow to the most likely reason for it
 - If the condition is serious, still recommend seeing a doctor but keep it concise
+- Before suggesting to see a docter, give brief possible suggestions that can help 
+
+
 
 User question: `;
 
