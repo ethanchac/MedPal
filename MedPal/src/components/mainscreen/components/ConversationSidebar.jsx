@@ -3,7 +3,6 @@ import React, { useState, useEffect } from 'react';
 import { ConversationService } from '../../../data/conversationService';
 import MedPalLogo from '../../../assets/MedPal2.png';
 
-
 const ConversationSidebar = ({
   currentConversationId,
   onConversationSelect,
@@ -12,7 +11,6 @@ const ConversationSidebar = ({
   onToggle,
   isCollapsed,
   onToggleCollapse
-
 }) => {
   const [conversations, setConversations] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -21,11 +19,9 @@ const ConversationSidebar = ({
   const [editingId, setEditingId] = useState(null);
   const [editTitle, setEditTitle] = useState('');
 
-
   useEffect(() => {
     loadConversations();
   }, []);
-
 
   const loadConversations = async () => {
     try {
@@ -40,7 +36,6 @@ const ConversationSidebar = ({
     }
   };
 
-
   const handleNewConversation = async () => {
     try {
       const newConv = await ConversationService.createConversation();
@@ -51,11 +46,9 @@ const ConversationSidebar = ({
     }
   };
 
-
   const handleDeleteConversation = async (conversationId, e) => {
     e.stopPropagation();
     if (!window.confirm('Delete this conversation?')) return;
-
 
     try {
       await ConversationService.deleteConversation(conversationId);
@@ -68,7 +61,6 @@ const ConversationSidebar = ({
     }
   };
 
-
   const handleEditTitle = (conversation, e) => {
     e.stopPropagation();
     setEditingId(conversation.id);
@@ -80,7 +72,6 @@ const ConversationSidebar = ({
       setEditingId(null);
       return;
     }
-
 
     try {
       await ConversationService.updateConversationTitle(conversationId, editTitle.trim());
@@ -97,18 +88,15 @@ const ConversationSidebar = ({
     }
   };
 
-
   const handleToggleCollapse = () => {
     if (onToggleCollapse) {
       onToggleCollapse(!isCollapsed);
     }
   };
 
-
   const filteredConversations = conversations.filter(conv =>
     conv.title.toLowerCase().includes(searchQuery.toLowerCase())
   );
-
 
   return (
     <>
@@ -119,13 +107,14 @@ const ConversationSidebar = ({
         />
       )}
 
-
       <div className={`
-        fixed top-0 left-0 h-full z-50 transition-all duration-300 ease-in-out
+        fixed top-0 left-0 z-50 transition-all duration-300 ease-in-out
         ${isOpen && !isCollapsed ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}
         ${isCollapsed ? 'w-12' : 'w-80'}
         md:relative
         bg-[#B0101C] text-white
+        flex flex-col
+        h-full overflow-hidden
       `}>
         <div className={`p-2 border-b border-red-800 ${isCollapsed ? 'px-2' : 'px-4'}`}>
           <div className="flex items-center justify-between">
@@ -153,7 +142,6 @@ const ConversationSidebar = ({
             </button>
           </div>
 
-
           {!isCollapsed && (
             <>
               <button
@@ -165,7 +153,6 @@ const ConversationSidebar = ({
                 </svg>
                 New chat
               </button>
-
 
               <div className="mt-3">
                 <div className="relative">
@@ -185,7 +172,6 @@ const ConversationSidebar = ({
           )}
         </div>
 
-
         {isCollapsed && (
           <div className="p-2">
             <button
@@ -200,9 +186,8 @@ const ConversationSidebar = ({
           </div>
         )}
 
-
         {!isCollapsed && (
-          <div className="flex-1 overflow-y-auto">
+          <div className="flex-1 overflow-y-auto p-2">
             {loading ? (
               <div className="p-4 text-center text-red-200">Loading...</div>
             ) : error ? (
@@ -212,7 +197,7 @@ const ConversationSidebar = ({
                 {searchQuery ? 'No chats found' : 'No chats yet'}
               </div>
             ) : (
-              <div className="p-2 space-y-1">
+              <div className="space-y-1">
                 {filteredConversations.map((conversation) => (
                   <div
                     key={conversation.id}
@@ -277,7 +262,4 @@ const ConversationSidebar = ({
   );
 };
 
-
 export default ConversationSidebar;
-
-
