@@ -1,5 +1,5 @@
-// MainScreen.jsx - Updated to use ConversationHistory component
-import React, { useState, useEffect } from "react";
+// MainScreen.jsx - Updated with live transcription support
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { askGemini } from "../../Gemini/GeminiAPIService";
 import ttsService from "../../threejs/TTSService";
 import { ConversationService } from "../../data/conversationService";
@@ -16,7 +16,7 @@ import ChatInput from "./components/ChatInput";
 import ChatResponse from "./components/ChatResponse";
 import VoiceSettings from "./components/VoiceSettings";
 import ConversationSidebar from "./components/ConversationSidebar";
-import ConversationHistory from "./components/ConversationHistory"; // New import
+import ConversationHistory from "./components/ConversationHistory";
 import Authentication from "../authentication/Authentication";
 import Header from "./components/Header";
 import KeyParts from "./components/KeyParts";
@@ -34,9 +34,13 @@ function MainScreen() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [databaseReady, setDatabaseReady] = useState(false);
  
-  // New state for conversational mode
+  // Conversational mode state
   const [isConversationalMode, setIsConversationalMode] = useState(false);
   const [pendingInput, setPendingInput] = useState("");
+
+  // Live transcription state
+  const baseInputRef = useRef("");
+  const isTranscribingRef = useRef(false);
 
   const {
     isSpeaking: isTTSSpeaking,
@@ -69,44 +73,75 @@ function MainScreen() {
     }
   };
 
+  // Handle interim transcription (live display while speaking)
+  const handleInterimTranscript = useCallback((interimText) => {
+    if (isConversationalMode) {
+      // In conversational mode, don't show interim results in input
+      return;
+    }
+
+    if (!isTranscribingRef.current) {
+      // Store the current input as base when transcription starts
+      baseInputRef.current = input;
+      isTranscribingRef.current = true;
+    }
+    
+    // Update input field with base + interim transcript
+    // The speech hook will send us the full accumulated text, so we can display it with interim
+    setInput(baseInputRef.current + " " + interimText);
+  }, [input, isConversationalMode]);
+
   // Handle when user starts speaking (interrupts AI if needed)
-  const handleSpeechStart = () => {
+  const handleSpeechStart = useCallback(() => {
     if (isTTSSpeaking) {
       console.log("User started speaking - interrupting AI");
       stopSpeaking();
     }
-  };
+  }, [isTTSSpeaking, stopSpeaking]);
 
-  // Handle when user stops speaking (after 3 seconds of silence)
-  const handleSpeechEnd = () => {
+  // Handle when user stops speaking (after silence)
+  const handleSpeechEnd = useCallback(() => {
     console.log("User stopped speaking");
-  };
+    isTranscribingRef.current = false;
+  }, []);
 
-  // Handle transcript from speech recognition
-  const handleTranscript = async (transcript) => {
+  // Handle final transcript from speech recognition
+  const handleTranscript = useCallback(async (transcript) => {
     console.log("Received transcript:", transcript);
    
     if (isConversationalMode) {
       // In conversational mode, immediately process the transcript
       setPendingInput(transcript);
       await handleSubmit(transcript);
+      // Reset transcription state after submission in conversation mode
+      isTranscribingRef.current = false;
     } else {
-      // In normal mode, add to input field
-      setInput(prevInput => prevInput + transcript);
+      // In normal mode, this transcript is the FULL accumulated text
+      // Just set it directly to the input field
+      setInput(transcript);
+      baseInputRef.current = transcript;
+      // Don't reset transcription state - keep building
     }
-  };
+  }, [isConversationalMode]);
 
   const {
     isListening,
     isSupported,
     isSpeaking: isUserSpeaking,
     isPaused,
+    confidence,
     startListening,
     stopListening,
     forceSubmit,
     pauseListening,
     resumeListening
-  } = useSpeechRecognition(handleTranscript, handleSpeechStart, handleSpeechEnd);
+  } = useSpeechRecognition(
+    handleTranscript, 
+    handleSpeechStart, 
+    handleSpeechEnd,
+    handleInterimTranscript,
+    isConversationalMode // Pass conversational mode to the hook
+  );
 
   // Auth and database setup
   useEffect(() => {
@@ -141,14 +176,13 @@ function MainScreen() {
       }
     };
 
-    // Set initial state
     handleResize();
    
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  // In your useEffect for checking database
+  // Database check
   useEffect(() => {
     const checkDatabase = async () => {
       if (!user) return;
@@ -234,13 +268,14 @@ function MainScreen() {
     }
   };
 
-  const clearInput = () => {
+  const clearInput = useCallback(() => {
     setInput("");
     setPendingInput("");
-  };
+    baseInputRef.current = "";
+    isTranscribingRef.current = false;
+  }, []);
 
-  // Updated submit handler
-  // Updated handleSubmit function with proper error handling and state management
+  // Updated handleSubmit function
   const handleSubmit = async (overrideInput = null) => {
     const userMessage = overrideInput || input.trim();
     
@@ -248,9 +283,11 @@ function MainScreen() {
 
     setIsThinking(true);
     
-    // Clear inputs
+    // Clear inputs and reset transcription state
     setInput("");
     setPendingInput("");
+    baseInputRef.current = "";
+    isTranscribingRef.current = false;
     
     try {
       // Save user message first
@@ -276,14 +313,12 @@ function MainScreen() {
       
       setIsThinking(false);
       
-      // Important: Speak the response AFTER all state updates are complete
-      // Use setTimeout to ensure state updates have been applied
+      // Speak the response after all state updates
       setTimeout(async () => {
         try {
           await speakResponse(res);
         } catch (ttsError) {
           console.error('TTS Error:', ttsError);
-          // Don't let TTS errors break the conversation flow
         }
       }, 100);
       
@@ -301,7 +336,6 @@ function MainScreen() {
       
       setIsThinking(false);
       
-      // Same timeout pattern for error TTS
       setTimeout(async () => {
         try {
           await speakResponse(errorMsg);
@@ -329,14 +363,26 @@ function MainScreen() {
     if (isTTSSpeaking) {
       stopSpeaking();
     }
+    // In normal mode, keep existing input as base
+    // In conversational mode, start fresh
+    if (!isConversationalMode) {
+      baseInputRef.current = input;
+    } else {
+      baseInputRef.current = "";
+    }
+    isTranscribingRef.current = false;
     startListening();
   };
 
   const handleStopListening = () => {
     stopListening();
+    // Don't reset base input when stopping in normal mode
+    // Only reset in conversational mode
     if (isConversationalMode) {
+      baseInputRef.current = "";
       setIsConversationalMode(false);
     }
+    isTranscribingRef.current = false;
   };
 
   // Conversation management
@@ -354,6 +400,8 @@ function MainScreen() {
     setConversationMessages([]);
     setResponse("");
     setInput("");
+    baseInputRef.current = "";
+    isTranscribingRef.current = false;
     // Close sidebar on mobile after creating new conversation
     if (window.innerWidth < 768) {
       setSidebarOpen(false);
@@ -390,7 +438,8 @@ function MainScreen() {
     stopSpeaking,
     isConversationalMode,
     pendingInput,
-    isPaused
+    isPaused,
+    confidence // Add confidence to status
   };
 
   const voiceSettingsProps = {
@@ -434,7 +483,7 @@ function MainScreen() {
         voiceSettingsProps={voiceSettingsProps}
       />
    
-      {/* Main content area with proper responsive layout */}
+      {/* Main content area */}
       <div className={`
         flex-1 flex flex-col relative pt-16 bg-white min-w-0
         transition-all duration-300 ease-in-out
@@ -451,7 +500,7 @@ function MainScreen() {
           <div className="w-10" />
         </div>
 
-        {/* Layout Container with improved responsive design */}
+        {/* Layout Container */}
         <div className="flex-1 flex flex-col p-2 lg:p-4 overflow-y-auto min-h-0">
           <div className="max-w-7xl mx-auto w-full flex flex-col space-y-2 min-h-0">
             {/* Header with Title */}
@@ -473,9 +522,11 @@ function MainScreen() {
                   {isConversationalMode ? '🎙️ Conversation Mode ON' : '🎙️ Conversation Mode OFF'}
                 </button>
               </div>
+
+
             </div>
 
-            {/* Main Content Layout - Fixed responsive design */}
+            {/* Main Content Layout */}
             <div className="flex-1 flex flex-col lg:flex-row gap-4 min-h-0">
               {/* Left side - Avatar, Messages, and Input */}
               <div className="flex-1 lg:flex-[3] flex flex-col space-y-2 min-h-0">
@@ -490,7 +541,7 @@ function MainScreen() {
 
                 <StatusIndicators {...statusProps} />
 
-                {/* Conversation History - Now using separate component */}
+                {/* Conversation History */}
                 <div className="h-64 min-h-[256px]">
                   <ConversationHistory 
                     databaseReady={databaseReady}
