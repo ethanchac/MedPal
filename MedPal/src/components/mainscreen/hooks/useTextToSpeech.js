@@ -1,4 +1,3 @@
-// ✅ useTextToSpeech.js - updated to distinguish browser voice
 import { useState, useEffect, useRef } from 'react';
 import ttsService, { TTS_MODES } from '../../../threejs/TTSService';
 
@@ -26,17 +25,21 @@ export const useTextToSpeech = () => {
   const startPolling = () => {
     if (pollingIntervalRef.current) return;
     pollingIntervalRef.current = setInterval(() => {
-      const isCurrentlySpeaking = ttsService.isSpeaking();
-      setIsSpeaking(isCurrentlySpeaking);
+      try {
+        const isCurrentlySpeaking = ttsService.isSpeaking();
+        setIsSpeaking(isCurrentlySpeaking);
 
-      const audioObj = ttsService.getCurrentAudio();
-      setCurrentAudio(audioObj);
+        const audioObj = ttsService.getCurrentAudio();
+        setCurrentAudio(audioObj);
 
-      if (!isCurrentlySpeaking) {
+        if (!isCurrentlySpeaking) {
+          stopPolling();
+        }
+      } catch (error) {
+        console.error('Polling error:', error);
         stopPolling();
       }
     }, 100);
-
   };
 
   const stopPolling = () => {
@@ -57,17 +60,19 @@ export const useTextToSpeech = () => {
       const result = await ttsService.speak(
         text,
         () => {
+          // onStart callback
           setIsSpeaking(true);
-          const isBrowser = result?.provider === 'browser';
-          setCurrentAudio(isBrowser ? null : ttsService.getCurrentAudio());
           startPolling();
         },
         () => {
+          // onEnd callback
           setIsSpeaking(false);
           setCurrentAudio(null);
           stopPolling();
         },
         (error) => {
+          // onError callback
+          console.error('TTS Error:', error);
           setTtsError(`Voice synthesis failed: ${error.message}`);
           setIsSpeaking(false);
           setCurrentAudio(null);
@@ -75,8 +80,16 @@ export const useTextToSpeech = () => {
         }
       );
 
+      // Handle result after the async operation
       if (result?.success) {
         setLastUsedProvider(result.provider);
+        
+        // Set audio object based on provider
+        if (result.provider !== 'browser') {
+          const audioObj = ttsService.getCurrentAudio();
+          setCurrentAudio(audioObj);
+        }
+        
         if (result.fallback) {
           setTtsError(`ElevenLabs failed, using browser voice instead`);
           setTimeout(() => setTtsError(null), 3000);
@@ -88,6 +101,7 @@ export const useTextToSpeech = () => {
         stopPolling();
       }
     } catch (error) {
+      console.error('TTS Hook Error:', error);
       setTtsError('All voice synthesis methods failed. Please try again.');
       setIsSpeaking(false);
       setCurrentAudio(null);
@@ -96,10 +110,14 @@ export const useTextToSpeech = () => {
   };
 
   const stopSpeaking = () => {
-    ttsService.stop();
-    setIsSpeaking(false);
-    setCurrentAudio(null);
-    stopPolling();
+    try {
+      ttsService.stop();
+      setIsSpeaking(false);
+      setCurrentAudio(null);
+      stopPolling();
+    } catch (error) {
+      console.error('Error stopping TTS:', error);
+    }
   };
 
   const testVoice = async () => {
@@ -109,12 +127,18 @@ export const useTextToSpeech = () => {
 
   const getVoiceStatusText = () => {
     if (!isSpeaking) return '';
-    if (lastUsedProvider === 'elevenlabs') return 'Rachel (ElevenLabs) is speaking...';
-    if (lastUsedProvider === 'browser') {
-      const browserInfo = ttsService.getBrowserVoicesInfo();
-      return `${browserInfo.bestFemale} is speaking...`;
+    
+    try {
+      if (lastUsedProvider === 'elevenlabs') return 'Rachel (ElevenLabs) is speaking...';
+      if (lastUsedProvider === 'browser') {
+        const browserInfo = ttsService.getBrowserVoicesInfo();
+        return `${browserInfo?.bestFemale || 'Browser voice'} is speaking...`;
+      }
+      return 'AI is speaking...';
+    } catch (error) {
+      console.error('Error getting voice status:', error);
+      return 'AI is speaking...';
     }
-    return 'AI is speaking...';
   };
 
   return {

@@ -64,11 +64,24 @@ function MainScreen() {
     try {
       await originalSpeakResponse(text);
     } finally {
-      // Resume listening after speaking is done
+      // Resume listening after speaking is done ONLY in conversation mode
       if (isConversationalMode) {
+        console.log("AI finished speaking, restarting listening in conversation mode...");
         setTimeout(() => {
-          resumeListening();
-        }, 500);
+          if (isConversationalMode) { // Double check we're still in conversation mode
+            console.log("Attempting to restart listening...");
+            // Force stop and restart to ensure clean state
+            if (isListening) {
+              stopListening();
+            }
+            setTimeout(() => {
+              if (isConversationalMode) {
+                console.log("Starting fresh listening session...");
+                startListening();
+              }
+            }, 500);
+          }
+        }, 1000); // Wait 1 second after AI finishes speaking before listening again
       }
     }
   };
@@ -113,8 +126,7 @@ function MainScreen() {
       // In conversational mode, immediately process the transcript
       setPendingInput(transcript);
       await handleSubmit(transcript);
-      // Reset transcription state after submission in conversation mode
-      isTranscribingRef.current = false;
+      // The speakResponse function will handle restarting listening after AI responds
     } else {
       // In normal mode, this transcript is the FULL accumulated text
       // Just set it directly to the input field
@@ -319,6 +331,14 @@ function MainScreen() {
           await speakResponse(res);
         } catch (ttsError) {
           console.error('TTS Error:', ttsError);
+          // If TTS fails in conversation mode, still restart listening
+          if (isConversationalMode) {
+            setTimeout(() => {
+              if (isConversationalMode && !isListening) {
+                startListening();
+              }
+            }, 1000);
+          }
         }
       }, 100);
       
@@ -341,6 +361,14 @@ function MainScreen() {
           await speakResponse(errorMsg);
         } catch (ttsError) {
           console.error('TTS Error on error message:', ttsError);
+          // If TTS fails in conversation mode, still restart listening
+          if (isConversationalMode) {
+            setTimeout(() => {
+              if (isConversationalMode && !isListening) {
+                startListening();
+              }
+            }, 1000);
+          }
         }
       }, 100);
     }
@@ -352,9 +380,11 @@ function MainScreen() {
       // Turning off conversational mode
       stopListening();
       setIsConversationalMode(false);
+      console.log("Conversation mode turned OFF");
     } else {
       // Turning on conversational mode
       setIsConversationalMode(true);
+      console.log("Conversation mode turned ON - starting to listen...");
       handleStartListening();
     }
   };
@@ -371,6 +401,8 @@ function MainScreen() {
       baseInputRef.current = "";
     }
     isTranscribingRef.current = false;
+    
+    console.log("handleStartListening called, conversational mode:", isConversationalMode);
     startListening();
   };
 

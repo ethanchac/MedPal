@@ -10,7 +10,9 @@ export const useSpeechRecognition = (onTranscript, onSpeechStart, onSpeechEnd, o
   const recognitionRef = useRef(null);
   const isManuallyStoppedRef = useRef(false);
   const lastSpeechTimeRef = useRef(0);
+  const lastWordTimeRef = useRef(0); // Track when last word was detected
   const speechTimeoutRef = useRef(null);
+  const wordTimeoutRef = useRef(null); // New timeout for word detection
   const currentTranscriptRef = useRef('');
   const silenceTimeoutRef = useRef(null);
   const voiceActivityRef = useRef(false);
@@ -97,16 +99,13 @@ export const useSpeechRecognition = (onTranscript, onSpeechStart, onSpeechEnd, o
             silenceTimeoutRef.current = setTimeout(() => {
               if (!voiceActivityRef.current) {
                 setIsSpeaking(false);
-                // Only submit transcript in conversational mode
-                if (isConversationalMode && currentTranscriptRef.current.trim() && onTranscript) {
-                  onTranscript(currentTranscriptRef.current.trim());
-                  currentTranscriptRef.current = '';
-                }
+                // Voice activity detection is now just for UI feedback
+                // Word-based timeout handles the actual submission
                 if (onSpeechEnd) {
                   onSpeechEnd();
                 }
               }
-            }, isConversationalMode ? 3000 : 500); // Much shorter timeout for normal mode
+            }, 1000); // Shorter timeout just for UI feedback
           }
         }
         
@@ -117,7 +116,7 @@ export const useSpeechRecognition = (onTranscript, onSpeechStart, onSpeechEnd, o
     } catch (error) {
       console.error('Voice activity detection failed:', error);
     }
-  }, [isPaused, isSpeaking, onSpeechStart, onSpeechEnd, onTranscript]);
+  }, [isPaused, isConversationalMode]);
 
   useEffect(() => {
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -175,6 +174,10 @@ export const useSpeechRecognition = (onTranscript, onSpeechStart, onSpeechEnd, o
               currentTranscriptRef.current += finalTranscript;
             }
             
+            // Update last word time when we get actual words
+            lastWordTimeRef.current = Date.now();
+            console.log('New word detected, resetting 2-second timer');
+            
             // In normal mode, immediately send each final transcript to update the UI
             if (!isConversationalMode && onTranscript) {
               onTranscript(currentTranscriptRef.current.trim());
@@ -182,30 +185,34 @@ export const useSpeechRecognition = (onTranscript, onSpeechStart, onSpeechEnd, o
             }
           }
           
-          // Clear existing speech timeout
+          // Clear existing timeouts
           if (speechTimeoutRef.current) {
             clearTimeout(speechTimeoutRef.current);
             speechTimeoutRef.current = null;
           }
+          if (wordTimeoutRef.current) {
+            clearTimeout(wordTimeoutRef.current);
+            wordTimeoutRef.current = null;
+          }
           
-          // Only set timeout if we're NOT continuously building transcript in normal mode
+          // In conversation mode, use word-based timeout (2 seconds after last word)
           if (isConversationalMode) {
-            // Set timeout for transcript submission in conversation mode
-            speechTimeoutRef.current = setTimeout(() => {
-              const timeSinceLastSpeech = Date.now() - lastSpeechTimeRef.current;
-              if (timeSinceLastSpeech >= 3000 && currentTranscriptRef.current.trim()) {
+            wordTimeoutRef.current = setTimeout(() => {
+              const timeSinceLastWord = Date.now() - lastWordTimeRef.current;
+              if (timeSinceLastWord >= 2000 && currentTranscriptRef.current.trim()) {
+                console.log('2 seconds since last word, submitting transcript:', currentTranscriptRef.current.trim());
                 if (onTranscript) {
                   onTranscript(currentTranscriptRef.current.trim());
                   currentTranscriptRef.current = '';
                 }
               }
-            }, 3000);
+            }, 2000);
           }
         }
       };
 
       recognitionRef.current.onstart = () => {
-        console.log('Speech recognition started');
+        console.log('Speech recognition started successfully');
       };
 
       recognitionRef.current.onerror = (event) => {
@@ -217,6 +224,11 @@ export const useSpeechRecognition = (onTranscript, onSpeechStart, onSpeechEnd, o
             alert('Microphone access is required for voice input. Please enable microphone permissions.');
             stopListening();
             break;
+          case 'network':
+            console.error('Network error - speech recognition unavailable');
+            // Don't stop listening immediately, try to continue
+            // The auto-restart will handle reconnection
+            break;
           case 'aborted':
             if (isListening && !isManuallyStoppedRef.current) {
               // Restart after short delay
@@ -226,35 +238,45 @@ export const useSpeechRecognition = (onTranscript, onSpeechStart, onSpeechEnd, o
                     recognitionRef.current?.start();
                   } catch (error) {
                     console.error('Restart failed:', error);
-                    setIsListening(false);
+                    // Only stop if multiple restarts fail
                   }
                 }
-              }, 300);
+              }, 1000); // Longer delay for network issues
             }
             break;
-          case 'network':
-            console.error('Network error - speech recognition unavailable');
-            stopListening();
+          case 'no-speech':
+            // This is normal, don't treat as error
+            console.log('No speech detected, continuing...');
             break;
           default:
-            console.error('Unknown speech recognition error:', event.error);
-            stopListening();
+            console.error('Speech recognition error:', event.error);
+            // Don't stop immediately, let auto-restart handle it
         }
       };
 
       recognitionRef.current.onend = () => {
         if (isListening && !isManuallyStoppedRef.current) {
-          // Auto-restart with shorter delay
+          // Auto-restart with longer delay for stability
           setTimeout(() => {
             if (isListening && !isManuallyStoppedRef.current) {
               try {
                 recognitionRef.current?.start();
               } catch (error) {
                 console.error('Auto-restart failed:', error);
-                setIsListening(false);
+                // Try one more time with longer delay
+                setTimeout(() => {
+                  if (isListening && !isManuallyStoppedRef.current) {
+                    try {
+                      recognitionRef.current?.start();
+                    } catch (retryError) {
+                      console.error('Final restart attempt failed:', retryError);
+                      setIsListening(false);
+                    }
+                  }
+                }, 2000);
               }
             }
-          }, 50);
+          }, 100);
         }
       };
     }
@@ -270,7 +292,7 @@ export const useSpeechRecognition = (onTranscript, onSpeechStart, onSpeechEnd, o
       if (voiceDetectionRef.current) {
         cancelAnimationFrame(voiceDetectionRef.current);
       }
-      if (audioContextRef.current) {
+      if (audioContextRef.current && audioContextRef.current.state !== 'closed') {
         audioContextRef.current.close();
       }
       if (recognitionRef.current) {
@@ -291,6 +313,10 @@ export const useSpeechRecognition = (onTranscript, onSpeechStart, onSpeechEnd, o
         clearTimeout(speechTimeoutRef.current);
         speechTimeoutRef.current = null;
       }
+      if (wordTimeoutRef.current) {
+        clearTimeout(wordTimeoutRef.current);
+        wordTimeoutRef.current = null;
+      }
       if (silenceTimeoutRef.current) {
         clearTimeout(silenceTimeoutRef.current);
         silenceTimeoutRef.current = null;
@@ -303,7 +329,7 @@ export const useSpeechRecognition = (onTranscript, onSpeechStart, onSpeechEnd, o
       voiceActivityRef.current = false;
       
       // Close audio context
-      if (audioContextRef.current) {
+      if (audioContextRef.current && audioContextRef.current.state !== 'closed') {
         audioContextRef.current.close();
         audioContextRef.current = null;
       }
@@ -311,6 +337,7 @@ export const useSpeechRecognition = (onTranscript, onSpeechStart, onSpeechEnd, o
   }, [isListening, isConversationalMode]);
 
   const startListening = useCallback(() => {
+    console.log("startListening called, current state:", { isListening, isConversationalMode });
     if (recognitionRef.current && !isListening) {
       isManuallyStoppedRef.current = false;
       // DON'T clear the transcript in normal mode!
@@ -327,6 +354,7 @@ export const useSpeechRecognition = (onTranscript, onSpeechStart, onSpeechEnd, o
       setTimeout(() => {
         if (!isManuallyStoppedRef.current && recognitionRef.current) {
           try {
+            console.log("Actually starting speech recognition...");
             recognitionRef.current.start();
           } catch (error) {
             console.error('Failed to start recognition:', error);
@@ -336,6 +364,8 @@ export const useSpeechRecognition = (onTranscript, onSpeechStart, onSpeechEnd, o
           }
         }
       }, 100);
+    } else {
+      console.log("startListening skipped - already listening or no recognition available");
     }
   }, [isListening, initVoiceActivityDetection, isConversationalMode]);
 
@@ -346,6 +376,10 @@ export const useSpeechRecognition = (onTranscript, onSpeechStart, onSpeechEnd, o
     if (speechTimeoutRef.current) {
       clearTimeout(speechTimeoutRef.current);
       speechTimeoutRef.current = null;
+    }
+    if (wordTimeoutRef.current) {
+      clearTimeout(wordTimeoutRef.current);
+      wordTimeoutRef.current = null;
     }
     if (silenceTimeoutRef.current) {
       clearTimeout(silenceTimeoutRef.current);
@@ -389,6 +423,10 @@ export const useSpeechRecognition = (onTranscript, onSpeechStart, onSpeechEnd, o
       clearTimeout(speechTimeoutRef.current);
       speechTimeoutRef.current = null;
     }
+    if (wordTimeoutRef.current) {
+      clearTimeout(wordTimeoutRef.current);
+      wordTimeoutRef.current = null;
+    }
     if (silenceTimeoutRef.current) {
       clearTimeout(silenceTimeoutRef.current);
       silenceTimeoutRef.current = null;
@@ -405,6 +443,10 @@ export const useSpeechRecognition = (onTranscript, onSpeechStart, onSpeechEnd, o
     if (speechTimeoutRef.current) {
       clearTimeout(speechTimeoutRef.current);
       speechTimeoutRef.current = null;
+    }
+    if (wordTimeoutRef.current) {
+      clearTimeout(wordTimeoutRef.current);
+      wordTimeoutRef.current = null;
     }
     if (silenceTimeoutRef.current) {
       clearTimeout(silenceTimeoutRef.current);
