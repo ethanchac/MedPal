@@ -39,6 +39,7 @@ MedPal is an AI-driven virtual healthcare assistant that acts like a personal do
 | **React** | Frontend framework |
 | **Tailwind CSS** | Modern responsive styling |
 | **Supabase** | User authentication and database for conversations |
+| **Google Cloud Service** | Authentication through Google |
 | **Google Gemini API** | AI assistant response generation |
 | **ElevenLabs API** | Realistic text-to-speech voice responses |
 | **Ready Player Me** | Avatar system integrated with Three.js |
