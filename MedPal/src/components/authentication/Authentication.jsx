@@ -23,6 +23,28 @@ export default function Authentication() {
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
+  // Check authentication status on mount and listen for auth changes
+  useEffect(() => {
+    // Check if user is already signed in
+    const checkUser = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session) {
+        navigate("/main");
+      }
+    };
+
+    checkUser();
+
+    // Listen for auth state changes (for OAuth redirects)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'SIGNED_IN' && session) {
+        navigate("/main");
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, [navigate]);
+
   const handleInputChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
     setError("");
