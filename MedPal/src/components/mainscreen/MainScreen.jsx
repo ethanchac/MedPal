@@ -532,50 +532,58 @@ function MainScreen() {
           <div className="w-10" />
         </div>
 
-        {/* Layout Container */}
-        <div className="flex-1 flex flex-col p-2 lg:p-4 overflow-y-auto min-h-0">
-          <div className="max-w-7xl mx-auto w-full flex flex-col space-y-2 min-h-0">
-            {/* Header with Title */}
-            <div className="flex-shrink-0">
-              <h1 className="text-2xl md:text-3xl font-bold text-center text-black">
+        {/* Compact Header at Top */}
+        <div className="flex-shrink-0 bg-white border-b border-gray-100 shadow-sm">
+          <div className="max-w-7xl mx-auto px-4 py-2">
+            <div className="flex items-center justify-between">
+              <h1 className="text-xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 bg-clip-text text-transparent">
                 MedPal
               </h1>
-             
-              {/* Conversational Mode Toggle */}
-              <div className="flex justify-center mt-2">
-                <button
-                  onClick={toggleConversationalMode}
-                  className={`px-6 py-2 rounded-full font-medium transition-all duration-200 ${
-                    isConversationalMode
-                      ? 'bg-green-500 text-white shadow-lg'
-                      : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                  }`}
-                >
-                  {isConversationalMode ? '🎙️ Conversation Mode ON' : '🎙️ Conversation Mode OFF'}
-                </button>
-              </div>
 
-
+              {/* Conversational Mode Toggle - Compact */}
+              <button
+                onClick={toggleConversationalMode}
+                className={`px-4 py-1.5 rounded-full text-xs font-semibold transition-all duration-300 ${
+                  isConversationalMode
+                    ? 'bg-gradient-to-r from-green-500 to-emerald-500 text-white'
+                    : 'bg-white text-gray-700 border border-gray-300 hover:border-gray-400'
+                }`}
+              >
+                <span className="flex items-center gap-1.5">
+                  <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M7 4a3 3 0 016 0v4a3 3 0 11-6 0V4zm4 10.93A7.001 7.001 0 0017 8a1 1 0 10-2 0A5 5 0 015 8a1 1 0 00-2 0 7.001 7.001 0 006 6.93V17H6a1 1 0 100 2h8a1 1 0 100-2h-3v-2.07z" clipRule="evenodd" />
+                  </svg>
+                  {isConversationalMode ? 'Conversation ON' : 'Conversation OFF'}
+                </span>
+              </button>
             </div>
+          </div>
+        </div>
 
+        {/* Layout Container */}
+        <div className="flex-1 flex flex-col p-3 lg:p-4 overflow-hidden min-h-0">
+          <div className="max-w-7xl mx-auto w-full flex flex-col h-full min-h-0">
             {/* Main Content Layout */}
-            <div className="flex-1 flex flex-col lg:flex-row gap-4 min-h-0">
+            <div className="flex-1 flex flex-col lg:flex-row gap-3 min-h-0 overflow-hidden">
               {/* Left side - Avatar, Messages, and Input */}
-              <div className="flex-1 lg:flex-[3] flex flex-col space-y-2 min-h-0">
-                {/* Avatar Section */}
-                <div className="flex justify-center flex-shrink-0">
+              <div className="flex-1 lg:flex-[3] flex flex-col min-h-0 overflow-hidden">
+                {/* Avatar Section - More compact */}
+                <div className="flex justify-center flex-shrink-0 mb-2">
                   <AvatarContainer
                     isSpeaking={isTTSSpeaking}
                     currentAudio={ttsService.currentAudio}
+                    currentText={response}
                     showDebug={showDebug}
                   />
                 </div>
 
-                <StatusIndicators {...statusProps} />
+                <div className="flex-shrink-0 mb-2">
+                  <StatusIndicators {...statusProps} />
+                </div>
 
-                {/* Conversation History */}
-                <div className="h-64 min-h-[256px]">
-                  <ConversationHistory 
+                {/* Conversation History - Flexible height */}
+                <div className="flex-1 min-h-0 mb-3 overflow-hidden">
+                  <ConversationHistory
                     databaseReady={databaseReady}
                     conversationMessages={conversationMessages}
                     isConversationalMode={isConversationalMode}
@@ -595,11 +603,11 @@ function MainScreen() {
                   </div>
                 )}
               </div>
-           
+
               {/* Right side - KeyParts */}
-              <div className="flex-1 lg:flex-[2] min-h-0">
+              <div className="flex-1 lg:flex-[2] min-h-0 overflow-hidden">
                 <KeyParts
-                  response={response || "Welcome to MedPal! I'm here to help with your medical questions. Feel free to ask about symptoms, treatments, or general health advice."}
+                  response={response || "Welcome to MedPal! I'm Dr. Theresa, your personal medical doctor. I'm here to help diagnose symptoms, recommend treatments, and answer your health questions with professional medical expertise."}
                   conversationId={currentConversationId}
                 />
               </div>

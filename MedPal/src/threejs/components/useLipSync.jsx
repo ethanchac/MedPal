@@ -251,11 +251,19 @@ export function useLipSync(isPlaying, audioData = null, expressiveness = 1.0, cu
 
   // Main animation loop with enhanced features
   useEffect(() => {
+    console.log('useLipSync effect:', { isPlaying, hasAudio: !!audioData, textLength: currentText?.length });
+
     if (isPlaying) {
       // Analyze text for emotional context
       textAnalysisRef.current = analyzeTextEmotion(currentText);
       phoneSequenceRef.current = generatePhonemeSequence(currentText);
-      
+
+      console.log('Starting lip sync:', {
+        emotion: textAnalysisRef.current,
+        phonemeCount: phoneSequenceRef.current.length,
+        hasAudioData: !!audioData
+      });
+
       if (audioData) {
         setupEnhancedAudioAnalysis(audioData);
       } else {
@@ -353,39 +361,49 @@ export function useLipSync(isPlaying, audioData = null, expressiveness = 1.0, cu
   };
 
   const startEnhancedPhonemeSequence = () => {
-    let sequenceTime = 0;
-    currentPhonemeRef.current = 0;
-    
+    const startTime = Date.now();
+    lastUpdateTimeRef.current = startTime;
+
     const animate = () => {
-      if (!isPlaying) return;
+      if (!isPlaying) {
+        animationRef.current = null;
+        return;
+      }
 
       const currentTime = Date.now();
+      const elapsedSeconds = (currentTime - startTime) / 1000; // Total time since start
       const deltaTime = (currentTime - lastUpdateTimeRef.current) / 1000;
       lastUpdateTimeRef.current = currentTime;
-      sequenceTime += deltaTime;
 
       const sequence = phoneSequenceRef.current;
       if (sequence.length > 0) {
+        // Calculate total sequence duration
+        let totalDuration = 0;
+        for (let i = 0; i < sequence.length; i++) {
+          totalDuration += sequence[i].duration;
+        }
+
+        // Loop the sequence
+        const sequenceTime = elapsedSeconds % totalDuration;
+
         // Find current phoneme in sequence
         let timeAccumulator = 0;
         let currentPhonemeData = sequence[0];
-        
+
         for (let i = 0; i < sequence.length; i++) {
-          if (sequenceTime >= timeAccumulator && sequenceTime < timeAccumulator + sequence[i].duration) {
+          const nextTime = timeAccumulator + sequence[i].duration;
+          if (sequenceTime >= timeAccumulator && sequenceTime < nextTime) {
             currentPhonemeData = sequence[i];
             break;
           }
-          timeAccumulator += sequence[i].duration;
-        }
-
-        // Reset sequence if completed
-        if (sequenceTime > timeAccumulator) {
-          sequenceTime = 0;
+          timeAccumulator = nextTime;
         }
 
         const { phoneme, emphasis } = currentPhonemeData;
         const viseme = VISEME_MAPPING[phoneme] || VISEME_MAPPING['A'];
         const intensity = expressiveness * emphasis;
+
+        console.log('Phoneme update:', { phoneme, sequenceTime: sequenceTime.toFixed(2), intensity, open: viseme.open });
 
         const baseMouthShapes = {
           openAmount: (viseme.open || 0) * intensity,
@@ -411,36 +429,51 @@ export function useLipSync(isPlaying, audioData = null, expressiveness = 1.0, cu
         // Apply emotional modulation
         const { emotion, intensity: emotionIntensity } = textAnalysisRef.current;
         const modulated = applyEmotionalModulation(baseMouthShapes, baseExpressions, emotion, emotionIntensity);
-        
+
         // Add breathing animation
         const finalExpressions = addBreathingAnimation(modulated.expressions, emotion, emotionIntensity);
 
-        setMouthShapes(modulated.mouthShapes);
+        // Force state update to trigger re-render
+        setMouthShapes(prev => {
+          const updated = modulated.mouthShapes;
+          // Only update if values actually changed
+          if (prev.openAmount !== updated.openAmount || prev.wideAmount !== updated.wideAmount) {
+            return updated;
+          }
+          return updated; // Return new object to force update
+        });
         setFacialExpressions(finalExpressions);
       }
 
       animationRef.current = requestAnimationFrame(animate);
     };
-    
+
+    lastUpdateTimeRef.current = Date.now();
     animate();
   };
 
   const stopLipSync = () => {
     if (animationRef.current) {
       cancelAnimationFrame(animationRef.current);
+      animationRef.current = null;
     }
-    
-    // Smooth transition to neutral
+
+    // Immediately reset to neutral for clean transitions
     setMouthShapes({
       openAmount: 0, wideAmount: 0, roundAmount: 0, smileAmount: 0,
       jawDrop: 0, lipPucker: 0, lipPress: 0, cheekPuff: 0,
       tongueOut: 0, nostrilFlare: 0
     });
-    
+
     setFacialExpressions({
       eyebrowRaise: 0, eyeSquint: 0, eyeBlink: 0,
       headTilt: 0, headNod: 0, emotionalIntensity: 0
     });
+
+    // Reset references
+    phoneSequenceRef.current = [];
+    currentPhonemeRef.current = 0;
+    textAnalysisRef.current = { emotion: 'neutral', intensity: 0 };
   };
 
   return { 

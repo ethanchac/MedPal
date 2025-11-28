@@ -11,8 +11,8 @@ function CameraController() {
 
   useEffect(() => {
     // Focus on the face for better expression visibility
-    camera.position.set(0, 1, 0.8);
-    camera.lookAt(0, 1, 0);
+    camera.position.set(0, 1.1, 0.6);
+    camera.lookAt(0, 1.1, 0);
   }, [camera]);
 
 
@@ -32,12 +32,12 @@ function LoadingFallback() {
 export default function AvatarViewer({
   isSpeaking = false,
   currentAudio = null,
-  modelUrl = "https://models.readyplayer.me/6860857a08372d74e879eadc.glb",
+  modelUrl = "https://models.readyplayer.me/685f5fe6ce6b397456e1ae90.glb",
   showDebug = false,
-  expressiveness = 1.0,
+  expressiveness = 1.0, // Reduced from 1.5 for more natural expressions
   currentText = "", // New: text being spoken for emotion analysis
   enableMicroExpressions = true, // New: subtle micro-expressions
-  emotionalRange = 1.0, // New: how much emotion affects expressions
+  emotionalRange = 0.8, // Reduced from 1.2 for more natural emotions
   showEmotionControls = false // New: show emotion control panel
 }) {
   const canvasRef = useRef();
@@ -62,9 +62,9 @@ export default function AvatarViewer({
 
 
   return (
-    <div className="w-full h-96 relative">
+    <div className="w-full h-full relative">
       {/* Main Canvas */}
-      <div className="w-full h-full pointer-events-none bg-gradient-to-b from-blue-50 to-white rounded-xl shadow-lg overflow-hidden">
+      <div className="w-full h-full pointer-events-none">
         <Canvas
           ref={canvasRef}
           camera={{
@@ -199,14 +199,6 @@ export default function AvatarViewer({
       )}
 
 
-      {/* Status Indicator */}
-      <div className="absolute bottom-2 right-2 bg-black bg-opacity-75 text-white p-2 rounded text-xs">
-        <div>Speaking: {isSpeaking ? "🟢" : "🔴"}</div>
-        <div>Audio: {currentAudio ? "🟢" : "🔴"}</div>
-        {currentDisplayText && (
-          <div>Emotion: {currentDisplayText ? "🎭" : "➖"}</div>
-        )}
-      </div>
     </div>
   );
 }

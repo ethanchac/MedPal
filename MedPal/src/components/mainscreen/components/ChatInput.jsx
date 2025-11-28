@@ -11,7 +11,7 @@ const ChatInput = ({
   const { isConversationalMode, isListening, isSpeaking } = voiceControlsProps;
   const textareaRef = useRef(null);
 
-  const handleKeyPress = (e) => {
+  const handleKeyDown = (e) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       if (input.trim() && !isThinking) {
@@ -48,56 +48,70 @@ const ChatInput = ({
   }
 
   return (
-    <>
-      <div className="relative mb-4">
-        <textarea
-          ref={textareaRef}
-          className={`w-full p-4 border-2 rounded-xl pr-20 resize-none focus:outline-none transition-all text-lg min-h-[60px] max-h-[200px] ${
-            isListening && isSpeaking
-              ? 'border-green-400 bg-green-50 focus:border-green-500'
-              : isListening
-              ? 'border-blue-400 bg-blue-50 focus:border-blue-500'
-              : 'border-gray-300 focus:border-blue-500'
-          }`}
-          placeholder={
-            isListening 
-              ? (isSpeaking ? "Listening... speak now" : "Ready to listen - start speaking")
-              : "Describe your symptoms, click the microphone to speak, or use 💬 for conversation mode..."
-          }
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          onKeyPress={handleKeyPress}
-          disabled={isThinking}
-          style={{ overflow: 'hidden' }}
-        />
-        
-        {/* Visual indicator for voice activity */}
-        {isListening && (
-          <div className="absolute left-4 bottom-2">
-            <div className={`flex items-center space-x-2 text-sm ${
-              isSpeaking ? 'text-green-600' : 'text-blue-600'
-            }`}>
-              <div className={`w-2 h-2 rounded-full ${
-                isSpeaking ? 'bg-green-500 animate-pulse' : 'bg-blue-500'
-              }`}></div>
-              <span>{isSpeaking ? 'Speaking...' : 'Listening'}</span>
-            </div>
-          </div>
-        )}
-        
-        <div className="absolute right-2 top-2">
-          <VoiceControls {...voiceControlsProps} />
-        </div>
-      </div>
+    <div className="relative group">
+      <textarea
+        ref={textareaRef}
+        className={`w-full px-5 py-4 border-2 rounded-2xl pr-32 resize-none focus:outline-none transition-all duration-200 text-base min-h-[68px] max-h-[150px] font-normal ${
+          isListening && isSpeaking
+            ? 'border-green-500 bg-green-50 focus:border-green-600 shadow-green-100'
+            : isListening
+            ? 'border-blue-500 bg-blue-50 focus:border-blue-600 shadow-blue-100'
+            : 'border-gray-200 bg-white focus:border-[#DC143C] hover:border-gray-300 shadow-sm hover:shadow-md'
+        } focus:shadow-lg`}
+        placeholder={
+          isListening
+            ? (isSpeaking ? "Listening... speak now" : "Ready to listen - start speaking")
+            : "Describe your symptoms or ask a medical question..."
+        }
+        value={input}
+        onChange={(e) => setInput(e.target.value)}
+        onKeyDown={handleKeyDown}
+        disabled={isThinking}
+        style={{ overflow: 'hidden' }}
+      />
 
-      <button
-        className="w-full bg-[#B0101C] text-white px-6 py-4 rounded-xl hover:bg-red-800 disabled:bg-gray-400 mb-6 transition-colors font-medium text-xl shadow-lg"
-        onClick={onSubmit}
-        disabled={!input.trim() || isThinking}
-      >
-        {isThinking ? "Thinking..." : "Ask"}
-      </button>
-    </>
+      {/* Visual indicator for voice activity */}
+      {isListening && (
+        <div className="absolute left-5 bottom-4">
+          <div className={`flex items-center space-x-2 text-sm font-medium ${
+            isSpeaking ? 'text-green-600' : 'text-blue-600'
+          }`}>
+            <div className={`w-2.5 h-2.5 rounded-full ${
+              isSpeaking ? 'bg-green-500 animate-pulse' : 'bg-blue-500 animate-pulse'
+            }`}></div>
+            <span>{isSpeaking ? 'Listening...' : 'Ready'}</span>
+          </div>
+        </div>
+      )}
+
+      {/* Right side controls: Voice button + Send button */}
+      <div className="absolute right-4 top-1/2 -translate-y-1/2 flex items-center gap-3">
+        <VoiceControls {...voiceControlsProps} />
+
+        {/* Send button */}
+        <button
+          onClick={onSubmit}
+          disabled={!input.trim() || isThinking}
+          className={`p-3.5 rounded-xl transition-all duration-200 ${
+            !input.trim() || isThinking
+              ? 'bg-gray-200 cursor-not-allowed opacity-50'
+              : 'bg-gradient-to-r from-[#DC143C] to-[#B0101C] hover:from-[#C41230] hover:to-[#9D0E19] shadow-md hover:shadow-xl active:scale-95 transform'
+          }`}
+          title={isThinking ? "Thinking..." : "Send message (Enter)"}
+        >
+          {isThinking ? (
+            <svg className="w-5 h-5 text-white animate-spin" fill="none" viewBox="0 0 24 24">
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+          ) : (
+            <svg className="w-5 h-5 text-white drop-shadow-sm" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+            </svg>
+          )}
+        </button>
+      </div>
+    </div>
   );
 };
 

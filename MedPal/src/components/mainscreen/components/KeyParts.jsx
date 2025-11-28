@@ -10,81 +10,75 @@ const KeyParts = ({ response, conversationId, isVisible = true }) => {
     if (!text || text.trim().length === 0) return [];
 
     const keyParts = [];
-    
-    // Ignore common conversational phrases
-    const ignorePatterns = [
-      /I understand|I'm here to help|please tell me|can you describe|need more information|important to note that I'm|not a substitute|consult.*doctor|see.*healthcare|medical professional|I cannot|I'm not able|please provide|what.*feel|how.*feel|when.*start|where.*pain/i,
-      /sorry|apologize|however|but|although|remember|keep in mind|it's important to note/i,
-      /let me know|feel free|if you have|any questions|anything else|is there/i
-    ];
 
-    // Split into sentences and clean them
-    const sentences = text.split(/[.!?]+/).filter(s => s.trim().length > 15);
+    // Extract diagnosis (first sentence starting with "It is likely you have")
+    const diagnosisMatch = text.match(/It is likely you have ([^.]+)\./i);
+    if (diagnosisMatch) {
+      keyParts.push({
+        text: diagnosisMatch[0].trim(),
+        type: 'symptom'
+      });
+    }
 
-    sentences.forEach((sentence) => {
-      const cleanSentence = sentence.trim();
-      
-      // Skip if it matches ignore patterns
-      if (ignorePatterns.some(pattern => pattern.test(cleanSentence))) {
-        return;
-      }
+    // Extract "What to do:" bullet points
+    const whatToDoMatch = text.match(/What to do:([\s\S]*?)(?:\n\n|$)/i);
+    if (whatToDoMatch) {
+      const bullets = whatToDoMatch[1].split('\n').filter(line => line.trim().startsWith('-'));
 
-      // Look for actionable medical advice, symptoms, treatments, and tips
-      const medicalPatterns = [
-        // Symptoms and conditions
-        /symptoms?.*include|signs?.*include|may.*experience|commonly.*causes?|indicates?.*|suggests?.*condition/i,
-        
-        // Treatments and remedies
-        /treatment.*options?|recommended.*treatment|try.*|consider.*|apply.*|take.*medication|use.*cream|drink.*water|rest.*|ice.*|heat.*|compress/i,
-        
-        // Dosages and instructions
-        /\d+.*mg|times?.*daily|twice.*day|every.*hours?|before.*meals?|after.*eating|with.*food|on.*empty.*stomach/i,
-        
-        // Prevention and lifestyle
-        /prevent.*by|avoid.*|reduce.*risk|lifestyle.*changes?|diet.*|exercise.*|sleep.*|stress.*management/i,
-        
-        // Warning signs and when to seek help
-        /seek.*medical|emergency|urgent|immediate|dangerous|concerning|warning.*signs?|red.*flags?|worsen|severe|persistent/i,
-        
-        // Specific medical advice
-        /monitor.*|check.*|track.*|follow.*up|schedule.*appointment|contact.*doctor|call.*if|return.*if/i,
-        
-        // Common remedies and tips
-        /helps?.*with|effective.*for|relieves?|reduces?|improves?|beneficial.*for|good.*for|aid.*in/i,
-        
-        // Diagnostic information
-        /diagnosis.*|test.*results?|blood.*work|x-ray|scan|examination|physical.*exam/i
-      ];
-
-      // Check if sentence contains medical advice/information
-      if (medicalPatterns.some(pattern => pattern.test(cleanSentence))) {
-        // Additional filtering for quality
-        if (cleanSentence.length > 20 && cleanSentence.length < 200) {
+      bullets.forEach(bullet => {
+        const cleanBullet = bullet.replace(/^-\s*/, '').trim();
+        if (cleanBullet.length > 15 && cleanBullet.length < 300) {
           keyParts.push({
-            text: cleanSentence,
-            type: categorizeNote(cleanSentence)
+            text: cleanBullet,
+            type: categorizeNote(cleanBullet)
           });
         }
-      }
-    });
+      });
+    }
 
-    return keyParts.slice(0, 4); // Max 4 new notes per response
+    // Fallback: Extract any bullet points if "What to do:" wasn't found
+    if (keyParts.length <= 1) {
+      const lines = text.split('\n');
+      lines.forEach(line => {
+        if (line.trim().startsWith('-')) {
+          const cleanLine = line.replace(/^-\s*/, '').trim();
+          if (cleanLine.length > 15 && cleanLine.length < 300) {
+            keyParts.push({
+              text: cleanLine,
+              type: categorizeNote(cleanLine)
+            });
+          }
+        }
+      });
+    }
+
+    return keyParts.slice(0, 6); // Max 6 notes per response (1 diagnosis + 5 actions)
   };
 
   // Categorize notes by type for better organization
   const categorizeNote = (text) => {
-    if (/symptoms?|signs?|pain|ache|experience|feel/i.test(text)) {
-      return 'symptom';
-    } else if (/treatment|medication|take|apply|use|try/i.test(text)) {
-      return 'treatment';
-    } else if (/seek|emergency|urgent|warning|dangerous|severe/i.test(text)) {
+    // Check for warnings/emergencies first (highest priority)
+    if (/seek.*medical|emergency|urgent|immediate|doctor|hospital|911|chest pain|severe|persistent|worsen/i.test(text)) {
       return 'warning';
-    } else if (/prevent|avoid|lifestyle|diet|exercise|sleep/i.test(text)) {
+    }
+    // Diagnosis/symptom identification
+    else if (/It is likely you have|diagnosis|symptoms?|signs?|condition|disease|pain|ache/i.test(text)) {
+      return 'symptom';
+    }
+    // Treatment actions
+    else if (/take|apply|use|drink|eat|medication|pill|tablet|cream|ointment|compress|ice|heat/i.test(text)) {
+      return 'treatment';
+    }
+    // Prevention and lifestyle
+    else if (/avoid|prevent|reduce|stop|limit|rest|sleep|elevate|position/i.test(text)) {
       return 'prevention';
-    } else if (/helps?|effective|beneficial|good.*for/i.test(text)) {
+    }
+    // Tips and helpful info
+    else if (/try|consider|helps?|effective|beneficial|good.*for|may.*help|can.*help/i.test(text)) {
       return 'tip';
-    } else {
-      return 'general';
+    }
+    else {
+      return 'treatment'; // Default to treatment for action items
     }
   };
 
@@ -165,22 +159,29 @@ const KeyParts = ({ response, conversationId, isVisible = true }) => {
   if (!isVisible) return null;
 
   return (
-    <div className="w-full h-full bg-white rounded-lg shadow-md border border-gray-200 p-4 flex flex-col" style={{ minHeight: '400px' }}>
+    <div className="w-full h-full bg-white rounded-2xl shadow-lg border border-gray-100 p-5 flex flex-col" style={{ minHeight: '400px' }}>
       {/* Header */}
-      <div className="flex items-center gap-2 mb-4 pb-2 border-b border-gray-100">
-        <Clipboard className="w-5 h-5 text-gray-600" />
-        <h3 className="font-medium text-gray-800">Medical Notes</h3>
-        <span className="text-xs text-gray-500 ml-auto">{allNotes.length} items</span>
+      <div className="flex items-center gap-3 mb-5 pb-3 border-b border-gray-100">
+        <div className="p-2 bg-blue-50 rounded-lg">
+          <Clipboard className="w-5 h-5 text-blue-600" />
+        </div>
+        <div className="flex-1">
+          <h3 className="font-semibold text-gray-900 text-lg">Medical Notes</h3>
+          <p className="text-xs text-gray-500 mt-0.5">Key insights from your consultation</p>
+        </div>
+        <span className="text-sm font-medium text-gray-600 bg-gray-100 px-3 py-1 rounded-full">{allNotes.length}</span>
       </div>
 
       {/* Notes List */}
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex-1 overflow-y-auto pr-1">
         <div className="space-y-3">
         {allNotes.length === 0 ? (
-          <div className="text-center py-8 text-gray-500">
-            <Clipboard className="w-8 h-8 mx-auto mb-2 opacity-30" />
-            <p className="text-sm">Medical notes and advice will appear here</p>
-            <p className="text-xs text-gray-400 mt-1">Important tips, treatments, and recommendations</p>
+          <div className="text-center py-12 text-gray-400">
+            <div className="bg-gray-50 rounded-full w-20 h-20 mx-auto mb-4 flex items-center justify-center">
+              <Clipboard className="w-10 h-10 opacity-20" />
+            </div>
+            <p className="text-sm font-medium text-gray-600">Medical notes will appear here</p>
+            <p className="text-xs text-gray-400 mt-2 max-w-xs mx-auto">Important tips, treatments, and recommendations from your conversation</p>
           </div>
         ) : (
           allNotes.map((note) => {
@@ -188,16 +189,16 @@ const KeyParts = ({ response, conversationId, isVisible = true }) => {
             return (
               <div
                 key={note.id}
-                className={`p-3 rounded-lg border-l-4 ${style.borderColor} ${style.bgColor} hover:shadow-sm transition-all duration-200`}
+                className={`p-4 rounded-xl border-l-4 ${style.borderColor} ${style.bgColor} hover:shadow-md transition-all duration-200 transform hover:-translate-y-0.5`}
               >
-                <div className="flex items-start gap-2">
-                  <div className={`mt-0.5 ${style.textColor}`}>
+                <div className="flex items-start gap-3">
+                  <div className={`mt-1 ${style.textColor} flex-shrink-0`}>
                     {style.icon}
                   </div>
-                  <div className="flex-1">
-                    <p className="text-sm text-gray-800 leading-relaxed font-medium">{note.text}</p>
-                    <div className="flex items-center gap-2 mt-2">
-                      <span className={`text-xs px-2 py-1 rounded-full ${style.bgColor} ${style.textColor} capitalize`}>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm text-gray-800 leading-relaxed">{note.text}</p>
+                    <div className="flex items-center gap-2 mt-3 flex-wrap">
+                      <span className={`text-xs px-2.5 py-1 rounded-full ${style.bgColor} ${style.textColor} capitalize font-medium border ${style.borderColor.replace('border-l', 'border')}`}>
                         {note.type}
                       </span>
                       <span className="text-xs text-gray-500 flex items-center gap-1">

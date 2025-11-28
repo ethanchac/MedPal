@@ -36,9 +36,11 @@ function AvatarModel({
       avatarAnimations.setExpressiveness(expressiveness);
       setAnimations(avatarAnimations);
 
-      if (process.env.NODE_ENV === 'development' || showDebugVisuals) {
+      if (showDebugVisuals) {
         setDebugMode(true);
         console.log("Enhanced animation debug info:", avatarAnimations.getDebugInfo());
+      } else {
+        setDebugMode(false);
       }
     }
   }, [scene, animations, showDebugVisuals, expressiveness]);
@@ -107,26 +109,26 @@ function AvatarModel({
       cheek_lift: 0
     };
 
-    // Emotion-specific micro-expressions
+    // Emotion-specific micro-expressions (reduced for more natural look)
     switch (currentEmotion) {
       case 'happy':
-        microExpressions.subtle_smile = emotionalIntensity * 0.3 * emotionTransitionRef.current;
-        microExpressions.cheek_lift = emotionalIntensity * 0.2;
+        microExpressions.subtle_smile = emotionalIntensity * 0.15 * emotionTransitionRef.current; // Reduced from 0.3
+        microExpressions.cheek_lift = emotionalIntensity * 0.1; // Reduced from 0.2
         break;
-      
+
       case 'sad':
-        microExpressions.slight_frown = emotionalIntensity * 0.4 * emotionTransitionRef.current;
+        microExpressions.slight_frown = emotionalIntensity * 0.2 * emotionTransitionRef.current; // Reduced from 0.4
         break;
-        
+
       case 'surprised':
         if (microExpressionTimerRef.current < 0.5) {
-          microExpressions.eyebrow_flash = emotionalIntensity * 0.8;
+          microExpressions.eyebrow_flash = emotionalIntensity * 0.4; // Reduced from 0.8
         }
         break;
-        
+
       case 'concerned':
-        microExpressions.slight_frown = emotionalIntensity * 0.2;
-        microExpressions.eyebrow_flash = Math.sin(microExpressionTimerRef.current * 3) * 0.1 * emotionalIntensity;
+        microExpressions.slight_frown = emotionalIntensity * 0.1; // Reduced from 0.2
+        microExpressions.eyebrow_flash = Math.sin(microExpressionTimerRef.current * 3) * 0.05 * emotionalIntensity; // Reduced from 0.1
         break;
     }
 
@@ -135,24 +137,39 @@ function AvatarModel({
 
   // Enhanced frame update with all new features
   useFrame((state, deltaTime) => {
-    if (!scene || !isSpeaking || !lipSyncData) return;
+    if (!scene) return;
 
-    const EXPRESSIVENESS_BOOST = expressiveness * emotionalRange * 3;
-    const SMOOTH_FACTOR = 0.15;
+    // Only apply animations when actually speaking and have lip sync data
+    if (!isSpeaking || !lipSyncData || !lipSyncData.mouthShapes) {
+      return;
+    }
+
+    const EXPRESSIVENESS_BOOST = expressiveness * emotionalRange * 1.5; // Reduced for more natural expressions
+    const SMOOTH_FACTOR = 0.15; // Original smooth factor for better control
 
     // Get current emotion data
     const currentEmotion = lipSyncData.currentEmotion || 'neutral';
     const emotionalIntensity = lipSyncData.emotionalIntensity || 0;
 
     // Generate micro-expressions if enabled
-    const microExpressions = enableMicroExpressions ? 
+    const microExpressions = enableMicroExpressions ?
       generateMicroExpressions(currentEmotion, emotionalIntensity, deltaTime) : {};
+
+    // Log for debugging
+    if (Math.random() < 0.1) { // Log 10% of frames
+      console.log('Lip sync active:', {
+        isSpeaking,
+        mouthShapes: lipSyncData.mouthShapes,
+        openAmount: lipSyncData.mouthShapes?.openAmount,
+        expressiveness: EXPRESSIVENESS_BOOST
+      });
+    }
 
     scene.traverse((child) => {
       if (child.isMesh && child.morphTargetDictionary && child.morphTargetInfluences) {
         const dict = child.morphTargetDictionary;
         const influences = child.morphTargetInfluences;
-        const mouthShapes = lipSyncData.mouthShapes || {};
+        const mouthShapes = lipSyncData.mouthShapes;
         const expressions = lipSyncData.facialExpressions || {};
 
         // === MOUTH ANIMATIONS ===
@@ -175,7 +192,7 @@ function AvatarModel({
         // Smile (with emotion enhancement)
         let smileIntensity = mouthShapes.smileAmount;
         if (currentEmotion === 'happy') {
-          smileIntensity += emotionalIntensity * 0.4;
+          smileIntensity += emotionalIntensity * 0.2; // Reduced from 0.4 for subtlety
         }
         smileIntensity += microExpressions.subtle_smile || 0;
         
@@ -196,7 +213,7 @@ function AvatarModel({
         // Frown (with emotion enhancement)
         let frownIntensity = 0;
         if (currentEmotion === 'sad' || currentEmotion === 'concerned') {
-          frownIntensity = emotionalIntensity * 0.3;
+          frownIntensity = emotionalIntensity * 0.15; // Reduced from 0.3 for subtlety
         }
         frownIntensity += microExpressions.slight_frown || 0;
         
@@ -214,14 +231,14 @@ function AvatarModel({
         // Eyebrow raise (with emotion and micro-expression enhancement)
         let eyebrowIntensity = expressions.eyebrowRaise;
         if (currentEmotion === 'surprised') {
-          eyebrowIntensity += emotionalIntensity * 0.6;
+          eyebrowIntensity += emotionalIntensity * 0.3; // Reduced from 0.6 for subtlety
         } else if (currentEmotion === 'concerned' || currentEmotion === 'questioning') {
-          eyebrowIntensity += emotionalIntensity * 0.3;
+          eyebrowIntensity += emotionalIntensity * 0.15; // Reduced from 0.3 for subtlety
         }
         eyebrowIntensity += microExpressions.eyebrow_flash || 0;
-        
-        applyMorphWithTransition(dict, influences, 
-          ['browUp', 'eyebrow_up', 'browRaise', 'surprised', 'browUp_L', 'browUp_R'], 
+
+        applyMorphWithTransition(dict, influences,
+          ['browUp', 'eyebrow_up', 'browRaise', 'surprised', 'browUp_L', 'browUp_R'],
           eyebrowIntensity * EXPRESSIVENESS_BOOST, SMOOTH_FACTOR * 0.8);
 
         // Eye squint
@@ -276,8 +293,8 @@ function AvatarModel({
           (mouthShapes.tongueOut || 0) * EXPRESSIVENESS_BOOST, SMOOTH_FACTOR);
 
         // === EMOTIONAL OVERLAY MORPHS ===
-        
-        // Apply general emotional states if available
+
+        // Apply general emotional states if available (reduced for more natural look)
         if (currentEmotion !== 'neutral' && emotionalIntensity > 0.1) {
           const emotionMorphs = {
             'happy': ['happy', 'joy', 'pleased'],
@@ -287,11 +304,11 @@ function AvatarModel({
             'confident': ['confident', 'determined'],
             'questioning': ['confused', 'puzzled', 'curious']
           };
-          
+
           const morphsForEmotion = emotionMorphs[currentEmotion] || [];
           morphsForEmotion.forEach(morphName => {
-            applyMorphWithTransition(dict, influences, [morphName], 
-              emotionalIntensity * 0.4 * EXPRESSIVENESS_BOOST, SMOOTH_FACTOR * 0.5);
+            applyMorphWithTransition(dict, influences, [morphName],
+              emotionalIntensity * 0.2 * EXPRESSIVENESS_BOOST, SMOOTH_FACTOR * 0.5); // Reduced from 0.4 to 0.2
           });
         }
       }
@@ -307,9 +324,9 @@ function AvatarModel({
 
   return (
     <>
-      <primitive 
+      <primitive
         ref={modelRef}
-        object={scene} 
+        object={scene}
         scale={1.0}
         position={[0, -0.5, 0]}
         rotation={[0, 0, 0]}

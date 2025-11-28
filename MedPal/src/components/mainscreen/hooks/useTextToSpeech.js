@@ -83,13 +83,14 @@ export const useTextToSpeech = () => {
       // Handle result after the async operation
       if (result?.success) {
         setLastUsedProvider(result.provider);
-        
-        // Set audio object based on provider
-        if (result.provider !== 'browser') {
-          const audioObj = ttsService.getCurrentAudio();
+
+        // Set audio object for ALL providers (including browser TTS for lip sync)
+        const audioObj = ttsService.getCurrentAudio();
+        if (audioObj) {
           setCurrentAudio(audioObj);
+          console.log('Audio object set for lip sync:', result.provider, audioObj);
         }
-        
+
         if (result.fallback) {
           setTtsError(`ElevenLabs failed, using browser voice instead`);
           setTimeout(() => setTtsError(null), 3000);

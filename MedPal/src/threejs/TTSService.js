@@ -455,11 +455,11 @@ class TTSService {
   async testVoice(mode = null) {
     const testMode = mode || this.mode;
     const originalMode = this.mode;
-    
+
     if (mode) this.setMode(mode);
-    
-    const testText = "Hello! I'm your AI medical assistant. This is a voice test.";
-    
+
+    const testText = "Hello! I'm Dr. Theresa, your personal medical doctor. This is a voice test.";
+
     try {
       const result = await this.speak(
         testText,
