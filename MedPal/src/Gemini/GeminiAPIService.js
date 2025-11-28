@@ -1,30 +1,97 @@
 const API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
 
-// Rate limiting
+// Rate limiting - shared across all functions
 let lastRequestTime = 0;
-const MIN_REQUEST_INTERVAL = 4000; // 4 seconds between requests (15 requests per minute max)
+const MIN_REQUEST_INTERVAL = 5000; // 5 seconds between requests (safer for free tier: 15 RPM limit)
+
+// Helper function to handle rate limiting for all API calls
+async function rateLimitedFetch(url, options, retries = 3) {
+  // Rate limiting check
+  const now = Date.now();
+  const timeSinceLastRequest = now - lastRequestTime;
+
+  if (timeSinceLastRequest < MIN_REQUEST_INTERVAL) {
+    const waitTime = MIN_REQUEST_INTERVAL - timeSinceLastRequest;
+    console.log(`Rate limiting: Waiting ${waitTime}ms before next request`);
+    await new Promise(resolve => setTimeout(resolve, waitTime));
+  }
+
+  lastRequestTime = Date.now();
+
+  // Make request with retry logic
+  for (let attempt = 0; attempt < retries; attempt++) {
+    try {
+      const response = await fetch(url, options);
+      const data = await response.json();
+
+      // Handle 429 (rate limit) errors with exponential backoff
+      if (response.status === 429) {
+        const retryAfter = response.headers.get('Retry-After');
+        const waitTime = retryAfter ? parseInt(retryAfter) * 1000 : Math.pow(2, attempt) * 2000;
+
+        console.warn(`Rate limit hit (429). Retrying in ${waitTime}ms... (Attempt ${attempt + 1}/${retries})`);
+
+        if (attempt < retries - 1) {
+          await new Promise(resolve => setTimeout(resolve, waitTime));
+          continue;
+        }
+      }
+
+      // Handle other errors
+      if (!response.ok) {
+        console.error("Gemini API Error:", data);
+        if (attempt === retries - 1) {
+          return {
+            error: true,
+            message: data.error?.message || 'Unknown error',
+            data: data
+          };
+        }
+        continue;
+      }
+
+      // Success
+      return { error: false, data: data };
+
+    } catch (error) {
+      console.error(`Gemini API Exception (Attempt ${attempt + 1}/${retries}):`, error);
+      if (attempt === retries - 1) {
+        return {
+          error: true,
+          message: error.message,
+          data: null
+        };
+      }
+      await new Promise(resolve => setTimeout(resolve, 1000 * (attempt + 1)));
+    }
+  }
+
+  return { error: true, message: 'Max retries exceeded', data: null };
+}
 
 // Original function - keep for backward compatibility
 export async function askGeminiOriginal(prompt) {
-  const response = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${API_KEY}`,
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        contents: [
-          {
-            parts: [{ text: prompt }],
-          },
-        ],
-      }),
-    }
-  );
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${API_KEY}`;
+  const options = {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      contents: [
+        {
+          parts: [{ text: prompt }],
+        },
+      ],
+    }),
+  };
 
-  const data = await response.json();
+  const result = await rateLimitedFetch(url, options);
 
-  if (data.candidates?.length) {
-    return data.candidates[0].content.parts[0].text;
+  if (result.error) {
+    return `Error: ${result.message}. Please try again.`;
+  }
+
+  if (result.data.candidates?.length) {
+    return result.data.candidates[0].content.parts[0].text;
   } else {
     return "Gemini had no response.";
   }
@@ -132,79 +199,61 @@ Patient inquiry: `;
 
   const fullPrompt = systemPrompt + userInput;
 
-  // Rate limiting check
-  const now = Date.now();
-  const timeSinceLastRequest = now - lastRequestTime;
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${API_KEY}`;
+  const options = {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      contents: [
+        {
+          parts: [{ text: fullPrompt }],
+        },
+      ],
+    }),
+  };
 
-  if (timeSinceLastRequest < MIN_REQUEST_INTERVAL) {
-    const waitTime = MIN_REQUEST_INTERVAL - timeSinceLastRequest;
-    console.log(`Rate limiting: Waiting ${waitTime}ms before next request`);
-    await new Promise(resolve => setTimeout(resolve, waitTime));
+  const result = await rateLimitedFetch(url, options);
+
+  // Log the full response for debugging
+  console.log("Gemini API Response:", result);
+
+  if (result.error) {
+    return `I apologize, but I'm having trouble connecting right now. ${result.message.includes('429') || result.message.includes('Resource exhausted') ? 'The API rate limit has been exceeded. Please wait a moment and try again.' : `Error: ${result.message}`}`;
   }
 
-  lastRequestTime = Date.now();
-
-  try {
-    const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${API_KEY}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          contents: [
-            {
-              parts: [{ text: fullPrompt }],
-            },
-          ],
-        }),
-      }
-    );
-
-    const data = await response.json();
-
-    // Log the full response for debugging
-    console.log("Gemini API Response:", data);
-
-    if (!response.ok) {
-      console.error("Gemini API Error:", data);
-      return `I apologize, but I'm having trouble connecting right now. Error: ${data.error?.message || 'Unknown error'}. Please try again.`;
-    }
-
-    if (data.candidates?.length) {
-      return data.candidates[0].content.parts[0].text;
-    } else {
-      console.warn("No candidates in response:", data);
-      return "I apologize, but I didn't receive a proper response. Please try rephrasing your question.";
-    }
-  } catch (error) {
-    console.error("Gemini API Exception:", error);
-    return `I'm having technical difficulties right now. Please try again in a moment. Error: ${error.message}`;
+  if (result.data.candidates?.length) {
+    return result.data.candidates[0].content.parts[0].text;
+  } else {
+    console.warn("No candidates in response:", result.data);
+    return "I apologize, but I didn't receive a proper response. Please try rephrasing your question.";
   }
 }
 
 // Alternative: Extra short responses (1-2 sentences only)
 export async function askGeminiShort(userInput) {
   const shortPrompt = `Answer this medical question in 1-2 sentences only. Be helpful but very concise: ${userInput}`;
-  
-  const response = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${API_KEY}`,
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        contents: [
-          {
-            parts: [{ text: shortPrompt }],
-          },
-        ],
-      }),
-    }
-  );
 
-  const data = await response.json();
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${API_KEY}`;
+  const options = {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      contents: [
+        {
+          parts: [{ text: shortPrompt }],
+        },
+      ],
+    }),
+  };
 
-  if (data.candidates?.length) {
-    return data.candidates[0].content.parts[0].text;
+  const result = await rateLimitedFetch(url, options);
+
+  if (result.error) {
+    return `Error: ${result.message}. Please try again.`;
+  }
+
+  if (result.data.candidates?.length) {
+    return result.data.candidates[0].content.parts[0].text;
   } else {
     return "Gemini had no response.";
   }
@@ -219,26 +268,28 @@ export async function askGeminiWithLength(userInput, length = "short") {
   };
 
   const selectedPrompt = prompts[length] || prompts.short;
-  
-  const response = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${API_KEY}`,
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        contents: [
-          {
-            parts: [{ text: selectedPrompt }],
-          },
-        ],
-      }),
-    }
-  );
 
-  const data = await response.json();
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${API_KEY}`;
+  const options = {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      contents: [
+        {
+          parts: [{ text: selectedPrompt }],
+        },
+      ],
+    }),
+  };
 
-  if (data.candidates?.length) {
-    return data.candidates[0].content.parts[0].text;
+  const result = await rateLimitedFetch(url, options);
+
+  if (result.error) {
+    return `Error: ${result.message}. Please try again.`;
+  }
+
+  if (result.data.candidates?.length) {
+    return result.data.candidates[0].content.parts[0].text;
   } else {
     return "Gemini had no response.";
   }
