@@ -16,7 +16,7 @@ class TTSService {
     this.currentAudio = null;
     this.browserVoices = [];
     this.bestFemaleVoice = null;
-    this.mode = TTS_MODES.ELEVENLABS_WITH_FALLBACK;
+    this.mode = TTS_MODES.BROWSER_ONLY; // Default to browser TTS
     this.currentUtterance = null;
     this.audioContext = null;
     this.browserAudioMock = null;
