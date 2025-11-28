@@ -24,6 +24,13 @@ const ConversationSidebar = ({
    loadConversations();
  }, []);
 
+ // Auto-select first conversation if none is selected
+ useEffect(() => {
+   if (!loading && conversations.length > 0 && !currentConversationId) {
+     onConversationSelect(conversations[0].id);
+   }
+ }, [loading, conversations, currentConversationId]);
+
  const loadConversations = async () => {
    try {
      setLoading(true);
@@ -218,11 +225,11 @@ const ConversationSidebar = ({
            }}
          >
            {loading ? (
-             <div className="p-4 text-center text-red-200">Loading...</div>
+             <div className="p-4 text-center text-red-200 pointer-events-none">Loading...</div>
            ) : error ? (
-             <div className="p-4 text-center text-red-300 text-sm">{error}</div>
+             <div className="p-4 text-center text-red-300 text-sm pointer-events-none">{error}</div>
            ) : filteredConversations.length === 0 ? (
-             <div className="p-4 text-center text-white/60 text-sm">
+             <div className="p-4 text-center text-white/60 text-sm pointer-events-none select-none">
                {searchQuery ? 'No conversations found' : 'No conversations yet'}
              </div>
            ) : (

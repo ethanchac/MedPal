@@ -5,7 +5,7 @@ export const useTextToSpeech = () => {
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [currentAudio, setCurrentAudio] = useState(null);
   const [ttsError, setTtsError] = useState(null);
-  const [ttsMode, setTtsMode] = useState(TTS_MODES.ELEVENLABS_WITH_FALLBACK);
+  const [ttsMode, setTtsMode] = useState(TTS_MODES.BROWSER_ONLY); // Default to browser TTS
   const [lastUsedProvider, setLastUsedProvider] = useState(null);
 
   const pollingIntervalRef = useRef(null);
