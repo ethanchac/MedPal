@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../../data/supabase-client.js";
-import { Heart, Mic, Brain, Sparkles, CheckCircle, Zap, Shield, Clock } from 'lucide-react';
+import { Heart, Mic, Brain, Sparkles, Zap, Shield, Clock } from 'lucide-react';
 
 export default function Authentication() {
   const navigate = useNavigate();
