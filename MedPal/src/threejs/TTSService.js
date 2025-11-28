@@ -1,9 +1,7 @@
 // TTSService.js - Enhanced version with proper browser TTS audio object for lip sync
 
 // ElevenLabs configuration
-const ELEVEN_API_KEY = "sk_12ee19b19a4e83d59dd86498e086c677afd60f3ead235880";
-// Nury's API key fully not used yet
-//sk_3871da300d6800b32af45290ac1cd889a75b425d43bfaa50
+const ELEVEN_API_KEY = import.meta.env.VITE_ELEVENLABS_API_KEY;
 const RACHEL_VOICE_ID = "21m00Tcm4TlvDq8ikWAM";
 
 // Voice preference modes

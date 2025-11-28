@@ -1,4 +1,4 @@
-const API_KEY = "AIzaSyDPKlSRCUoKYmVBYCTkgnM--cD0nfxKMy8";
+const API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
 
 // Rate limiting
 let lastRequestTime = 0;
