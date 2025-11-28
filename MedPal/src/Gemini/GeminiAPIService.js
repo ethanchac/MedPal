@@ -1,4 +1,4 @@
-const API_KEY = "AIzaSyAUB8yg-TgIxHV3V7UmI_y6xyIypncfZTg";
+const API_KEY = "AIzaSyDPKlSRCUoKYmVBYCTkgnM--cD0nfxKMy8";
 
 // Rate limiting
 let lastRequestTime = 0;
