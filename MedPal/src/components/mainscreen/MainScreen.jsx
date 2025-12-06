@@ -214,10 +214,9 @@ function MainScreen() {
 
   // Database functions
   const initializeConversation = async () => {
-    if (!databaseReady) return;
     try {
       const conversations = await ConversationService.getConversations();
-   
+
       if (conversations.length > 0) {
         setCurrentConversationId(conversations[0].id);
         await loadConversationMessages(conversations[0].id);
@@ -290,17 +289,23 @@ function MainScreen() {
   // Updated handleSubmit function
   const handleSubmit = async (overrideInput = null) => {
     const userMessage = overrideInput || input.trim();
-    
+
     if (!userMessage) return;
 
+    // Ensure a conversation exists before processing the message
+    if (!currentConversationId && databaseReady) {
+      console.log('No conversation found, creating one...');
+      await initializeNewConversation();
+    }
+
     setIsThinking(true);
-    
+
     // Clear inputs and reset transcription state
     setInput("");
     setPendingInput("");
     baseInputRef.current = "";
     isTranscribingRef.current = false;
-    
+
     try {
       // Save user message first
       await saveMessageToConversation(userMessage, 'user');
