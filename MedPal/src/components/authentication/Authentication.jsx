@@ -1,6 +1,12 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from "react-router-dom";
-import { supabase } from "../../data/supabase-client.js";
+import { auth, googleProvider } from "../../data/firebase-client.js";
+import {
+  createUserWithEmailAndPassword,
+  signInWithEmailAndPassword,
+  signInWithPopup,
+  onAuthStateChanged
+} from 'firebase/auth';
 import { Heart, Mic, Brain, Sparkles, Zap, Shield, Clock } from 'lucide-react';
 
 export default function Authentication() {
@@ -25,24 +31,14 @@ export default function Authentication() {
 
   // Check authentication status on mount and listen for auth changes
   useEffect(() => {
-    // Check if user is already signed in
-    const checkUser = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session) {
-        navigate("/main");
-      }
-    };
-
-    checkUser();
-
-    // Listen for auth state changes (for OAuth redirects)
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event === 'SIGNED_IN' && session) {
+    // Listen for auth state changes
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      if (user) {
         navigate("/main");
       }
     });
 
-    return () => subscription.unsubscribe();
+    return () => unsubscribe();
   }, [navigate]);
 
   const handleInputChange = (e) => {
@@ -54,20 +50,14 @@ export default function Authentication() {
   const handleSignIn = async (e) => {
     e.preventDefault();
     setLoading(true);
-    const { error } = await supabase.auth.signInWithPassword({
-      email: formData.email,
-      password: formData.password,
-      options: {
-        emailRedirectTo: `${window.location.origin}/auth`,
-      },
-    });
-    if (error) {
-      setError(error.message);
-      setLoading(false);
-    } else {
+    try {
+      await signInWithEmailAndPassword(auth, formData.email, formData.password);
       setFormData({ email: "", password: "", confirmPassword: "" });
       setMessage("Successfully signed in!");
       navigate("/main");
+    } catch (error) {
+      setError(error.message);
+      setLoading(false);
     }
   };
 
@@ -82,29 +72,23 @@ export default function Authentication() {
       return;
     }
     setLoading(true);
-    const { error } = await supabase.auth.signUp({
-      email: formData.email,
-      password: formData.password,
-      options: {
-        emailRedirectTo: `${window.location.origin}/auth`,
-      },
-    });
-    if (error) {
-      setError(error.message);
-    } else {
+    try {
+      await createUserWithEmailAndPassword(auth, formData.email, formData.password);
       setFormData({ email: "", password: "", confirmPassword: "" });
-      setMessage("Check your email for the confirmation link!");
+      setMessage("Account created successfully!");
+      navigate("/main");
+    } catch (error) {
+      setError(error.message);
     }
     setLoading(false);
   };
 
   const handleGoogleSignIn = async () => {
     setLoading(true);
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: "google",
-      options: { redirectTo: window.location.origin + "/main" },
-    });
-    if (error) {
+    try {
+      await signInWithPopup(auth, googleProvider);
+      navigate("/main");
+    } catch (error) {
       setError(error.message);
       setLoading(false);
     }

@@ -1,33 +1,21 @@
 import React, { useState, useEffect } from "react";
-import { supabase } from "../../../data/supabase-client";
+import { auth } from "../../../data/firebase-client";
+import { onAuthStateChanged, signOut } from 'firebase/auth';
 import VoiceSettings from "./VoiceSettings";
 
 function Header({ isSidebarOpen, isSidebarCollapsed, voiceSettingsProps }) {
   const [user, setUser] = useState(null);
 
   useEffect(() => {
-    const getSession = async () => {
-      try {
-        const { data: { session } } = await supabase.auth.getSession();
-        setUser(session?.user ?? null);
-      } catch (error) {
-        console.error("Error getting session:", error);
-      }
-    };
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      setUser(user);
+    });
 
-    getSession();
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (_event, session) => {
-        setUser(session?.user ?? null);
-      }
-    );
-
-    return () => subscription.unsubscribe();
+    return () => unsubscribe();
   }, []);
 
   const handleSignOut = async () => {
-    await supabase.auth.signOut();
+    await signOut(auth);
     setUser(null);
   };
 
@@ -57,9 +45,9 @@ function Header({ isSidebarOpen, isSidebarCollapsed, voiceSettingsProps }) {
           >
             Sign Out
           </button>
-          {user.user_metadata?.picture && (
+          {user.photoURL && (
             <img
-              src={user.user_metadata.picture}
+              src={user.photoURL}
               alt="User"
               className="w-8 h-8 rounded-full"
             />

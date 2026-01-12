@@ -3,7 +3,8 @@ import React, { useState, useEffect, useRef, useCallback } from "react";
 import { askGemini } from "../../Gemini/GeminiAPIService";
 import ttsService from "../../threejs/TTSService";
 import { ConversationService } from "../../data/conversationService";
-import { supabase } from "../../data/supabase-client";
+import { auth } from "../../data/firebase-client";
+import { onAuthStateChanged } from 'firebase/auth';
 
 // Custom Hooks
 import { useSpeechRecognition } from "./hooks/useSpeechRecognition";
@@ -157,27 +158,12 @@ function MainScreen() {
 
   // Auth and database setup
   useEffect(() => {
-    const getSession = async () => {
-      try {
-        const { data: { session } } = await supabase.auth.getSession();
-        setUser(session?.user ?? null);
-      } catch (error) {
-        console.error('Error getting session:', error);
-      } finally {
-        setAuthLoading(false);
-      }
-    };
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      setUser(user);
+      setAuthLoading(false);
+    });
 
-    getSession();
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event, session) => {
-        setUser(session?.user ?? null);
-        setAuthLoading(false);
-      }
-    );
-
-    return () => subscription.unsubscribe();
+    return () => unsubscribe();
   }, []);
 
   // Set sidebar open by default on desktop
@@ -196,20 +182,10 @@ function MainScreen() {
 
   // Database check
   useEffect(() => {
-    const checkDatabase = async () => {
-      if (!user) return;
-      try {
-        const { data, error } = await supabase.from('conversations').select('id').limit(1);
-        if (!error) {
-          setDatabaseReady(true);
-          initializeConversation();
-        }
-      } catch (error) {
-        console.error('Error checking database:', error);
-        setDatabaseReady(false);
-      }
-    };
-    checkDatabase();
+    if (user) {
+      setDatabaseReady(true);
+      initializeConversation();
+    }
   }, [user]);
 
   // Database functions
