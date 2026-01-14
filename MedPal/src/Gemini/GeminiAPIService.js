@@ -71,7 +71,7 @@ async function rateLimitedFetch(url, options, retries = 3) {
 
 // Original function - keep for backward compatibility
 export async function askGeminiOriginal(prompt) {
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${API_KEY}`;
+  const url = `https://generativelanguage.googleapis.com/v1/models/gemini-2.0-flash-lite:generateContent?key=${API_KEY}`;
   const options = {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -199,7 +199,7 @@ Patient inquiry: `;
 
   const fullPrompt = systemPrompt + userInput;
 
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${API_KEY}`;
+  const url = `https://generativelanguage.googleapis.com/v1/models/gemini-2.0-flash-lite:generateContent?key=${API_KEY}`;
   const options = {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -233,7 +233,7 @@ Patient inquiry: `;
 export async function askGeminiShort(userInput) {
   const shortPrompt = `Answer this medical question in 1-2 sentences only. Be helpful but very concise: ${userInput}`;
 
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${API_KEY}`;
+  const url = `https://generativelanguage.googleapis.com/v1/models/gemini-2.0-flash-lite:generateContent?key=${API_KEY}`;
   const options = {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -269,7 +269,7 @@ export async function askGeminiWithLength(userInput, length = "short") {
 
   const selectedPrompt = prompts[length] || prompts.short;
 
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${API_KEY}`;
+  const url = `https://generativelanguage.googleapis.com/v1/models/gemini-2.0-flash-lite:generateContent?key=${API_KEY}`;
   const options = {
     method: "POST",
     headers: { "Content-Type": "application/json" },
